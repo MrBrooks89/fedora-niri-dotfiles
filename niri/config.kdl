@@ -32,9 +32,9 @@ input {
 
 }
 
-// Surface Go Display
+// Laptop
 output "eDP-1" {
-    scale 1.5
+    scale 1
 }
 
 // Monitor 2
