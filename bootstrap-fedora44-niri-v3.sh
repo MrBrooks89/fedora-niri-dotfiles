@@ -189,7 +189,9 @@ sudo dnf -y install \
     wireless-regdb \
     linux-firmware \
     iwlwifi-mvm-firmware \
-    jetbrains-mono-fonts
+    jetbrains-mono-fonts \
+    zsh-autosuggestions \
+    zsh-syntax-highlighting
 
 echo "==> Enabling NetworkManager"
 sudo systemctl enable --now NetworkManager
