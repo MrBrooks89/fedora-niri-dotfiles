@@ -1,201 +1,396 @@
-# Fedora 44 Minimal → niri + Noctalia Workstation
+# Fedora 44 Minimal + Niri Workstation
 
-This documents the Fedora build assembled from a **Fedora Everything 44 Network Install ISO** using the **Minimal Install** base environment.
+A reproducible Fedora workstation built from **Fedora 44 Minimal** with **niri + Noctalia** as the primary desktop environment.
 
-The target design is:
+The goal is to start with a minimal Fedora installation and explicitly install only the desktop components, applications, development tools, and services I actually use.
+
+GNOME is installed only as a fallback desktop and for managing GTK/GNOME settings.
+
+## Desktop Stack
 
 ```text
 Fedora 44 Minimal
-├── GDM graphical login
-│   ├── niri             ← primary session
-│   │   └── Noctalia     ← shell
-│   └── GNOME            ← fallback/settings session
-├── Zsh
-├── Kitty
-├── Firefox
-├── PipeWire/WirePlumber
-├── XDG desktop portals
-├── grim + slurp + Satty screenshots
-├── Docker/containerlab (optional)
-└── user dotfiles under ~/.config
+        │
+        ▼
+       GDM
+        │
+        ├───────────────┐
+        ▼               ▼
+      niri            GNOME
+        │            fallback /
+        │            settings
+        ▼
+    Noctalia
 ```
 
-The point is to keep the base system small while retaining GNOME as a maintenance/settings environment when a GTK/GNOME setting is easier to manage graphically.
+Primary desktop:
 
-## 1. Base OS installation
+- niri
+- Noctalia Shell
+- Kitty
+- Zsh
+- Starship
+- JetBrains Mono / JetBrainsMono Nerd Font
+- Firefox
+- PipeWire
+- WirePlumber
 
-Use:
+Fallback desktop:
 
-- Fedora Everything 44
-- Network Install ISO
-- Intel/AMD `x86_64`
-- Software Selection: **Minimal Install**
+- GDM
+- GNOME Shell
+- GNOME Session
+- GNOME Control Center
 
-The Everything installer is graphical (Anaconda), but the installed Minimal system initially boots to a CLI.
+## Repository Structure
 
-After first login:
+The repository is designed to be cloned directly to:
+
+```text
+~/.dotfiles
+```
+
+Current structure:
+
+```text
+~/.dotfiles/
+├── kitty/
+│   └── ...
+│
+├── niri/
+│   ├── config.kdl
+│   ├── screenshot.sh
+│   └── ...
+│
+├── nvim/
+│   └── ...
+│
+├── .gitignore
+├── .zshrc
+├── starship.toml
+├── bootstrap-fedora44-niri-v2.sh
+└── FEDORA44_NIRI_BUILD.md
+```
+
+The bootstrap script can symlink these files into their normal locations:
+
+```text
+~/.dotfiles/.zshrc
+    → ~/.zshrc
+
+~/.dotfiles/starship.toml
+    → ~/.config/starship.toml
+
+~/.dotfiles/kitty/
+    → ~/.config/kitty/
+
+~/.dotfiles/niri/
+    → ~/.config/niri/
+
+~/.dotfiles/nvim/
+    → ~/.config/nvim/
+```
+
+This keeps the Git repository as the source of truth.
+
+Editing:
+
+```bash
+nvim ~/.config/niri/config.kdl
+```
+
+therefore modifies the configuration stored in the dotfiles repository.
+
+---
+
+# Fresh Fedora Installation
+
+## 1. Install Fedora
+
+Download:
+
+```text
+Fedora Everything 44
+Network Install
+x86_64
+```
+
+During installation select:
+
+```text
+Minimal Install
+```
+
+The installer itself is graphical, but the installed system initially contains only the minimal CLI environment.
+
+Boot the new system and log in.
+
+## 2. Update Fedora
 
 ```bash
 sudo dnf upgrade --refresh
 ```
 
-## 2. XDG configuration directory
+## 3. Install Git
 
-A Minimal install may not have `~/.config` yet. That is normal.
+Git is needed to retrieve this repository.
 
 ```bash
-mkdir -p ~/.config
+sudo dnf install git
 ```
 
-Existing configuration can be restored under it normally, for example:
+## 4. Clone the Dotfiles
+
+Clone the repository directly into `~/.dotfiles`:
+
+```bash
+git clone git@github.com:MrBrooks89/fedora-niri-dotfiles.git ~/.dotfiles
+```
+
+Then:
+
+```bash
+cd ~/.dotfiles
+```
+
+Make the bootstrap script executable:
+
+```bash
+chmod +x bootstrap-fedora44-niri-v2.sh
+```
+
+## 5. Run the Bootstrap Script
+
+Basic installation:
+
+```bash
+./bootstrap-fedora44-niri-v2.sh
+```
+
+Optional components can also be installed.
+
+For example:
+
+```bash
+./bootstrap-fedora44-niri-v2.sh \
+    --with-nerd-font \
+    --with-satty-copr \
+    --with-docker \
+    --with-containerlab
+```
+
+To include the static network configuration:
+
+```bash
+./bootstrap-fedora44-niri-v2.sh --all
+```
+
+The network portion is intentionally interactive so the script does not accidentally modify the wrong NetworkManager connection.
+
+---
+
+# Core Applications and Utilities
+
+The workstation includes tools such as:
 
 ```text
-~/.config/niri/
-~/.config/kitty/
-~/.config/noctalia/
-~/.config/satty/
+zsh
+git
+curl
+wget
+vim
+neovim
+tmux
+btop
+eza
+ripgrep
+fd
+jq
+python
+gcc
+make
+kitty
+firefox
+starship
 ```
 
-Avoid using `sudo` for files in your home directory. If ownership gets changed accidentally:
+## Zsh
+
+Zsh is configured as the login shell:
 
 ```bash
-sudo chown -R "$USER:$USER" ~/.config
+chsh -s /usr/bin/zsh
 ```
 
-## 3. Zsh
-
-Install and make it the default shell:
-
-```bash
-sudo dnf install zsh
-chsh -s "$(command -v zsh)"
-```
-
-Log out and back in, then verify:
-
-```bash
-echo "$SHELL"
-getent passwd "$USER"
-```
-
-Expected shell:
+Configuration:
 
 ```text
-/usr/bin/zsh
+~/.zshrc
 ```
 
-Originally niri was launched from `.zshrc` after a TTY login. Once GDM was added, that autostart block was no longer necessary and should be removed.
-
-## 4. Static IPv4 configuration
-
-Desired address:
+is managed from:
 
 ```text
-IP:      192.168.4.112/24
-Gateway: 192.168.4.1
-DNS:     192.168.4.1
+~/.dotfiles/.zshrc
 ```
 
-Find the NetworkManager connection:
+## Starship
+
+Starship provides the shell prompt.
+
+Configuration:
+
+```text
+~/.config/starship.toml
+```
+
+Repository source:
+
+```text
+~/.dotfiles/starship.toml
+```
+
+Zsh should contain:
 
 ```bash
-nmcli connection show
+eval "$(starship init zsh)"
 ```
 
-Then modify the correct connection name:
+---
+
+# Fonts
+
+The system uses **JetBrains Mono**.
+
+The normal Fedora JetBrains Mono font package is installed.
+
+For terminal icons and Starship glyphs, the **JetBrainsMono Nerd Font** can additionally be installed by running the bootstrap script with:
 
 ```bash
-sudo nmcli connection modify "Wired connection 1" \
-    ipv4.method manual \
-    ipv4.addresses 192.168.4.112/24 \
-    ipv4.gateway 192.168.4.1 \
-    ipv4.dns 192.168.4.1
+--with-nerd-font
 ```
 
-Apply it:
+The Nerd Font is installed under:
+
+```text
+~/.local/share/fonts/
+```
+
+Verify:
 
 ```bash
-sudo nmcli connection up "Wired connection 1"
+fc-list | grep -i jetbrains
 ```
 
-Be careful doing this over SSH because changing the active connection can interrupt the session.
-
-## 5. niri + Noctalia
-
-On Fedora 44, Noctalia v5 is available from Fedora's default repositories. The Noctalia documentation recommends compositor autostart for niri.
-
-Install:
+or:
 
 ```bash
-sudo dnf install niri noctalia
+fc-match "JetBrainsMono Nerd Font"
 ```
 
-In:
+---
+
+# Niri
+
+niri is the primary Wayland compositor.
+
+Configuration:
 
 ```text
 ~/.config/niri/config.kdl
 ```
 
-start Noctalia with:
+Repository source:
+
+```text
+~/.dotfiles/niri/config.kdl
+```
+
+Noctalia is launched by niri using:
 
 ```kdl
 spawn-at-startup "noctalia"
 ```
 
-Noctalia v5 changed its IPC/keybinding syntax compared with older releases.
+---
 
-For the power/session menu:
+# Noctalia
 
-```kdl
-Mod+P { spawn-sh "noctalia msg session-toggle"; }
+Noctalia provides the desktop shell.
+
+It handles components such as:
+
+- panel
+- launcher
+- session menu
+- desktop controls
+- wallpaper management
+
+Noctalia v5 changed its IPC syntax from older releases.
+
+Current commands use:
+
+```bash
+noctalia msg <command>
 ```
 
-The current CLI can be explored with:
+Available commands can be discovered with:
 
 ```bash
 noctalia msg --help
 ```
 
-## 6. GDM + GNOME fallback
+For example, the niri power/session menu binding is:
 
-The final design uses GDM rather than auto-launching niri from a TTY.
-
-Install only the core GNOME pieces needed for a fallback desktop and graphical settings:
-
-```bash
-sudo dnf install \
-    gdm \
-    gnome-shell \
-    gnome-session \
-    gnome-control-center
+```kdl
+Mod+P { spawn-sh "noctalia msg session-toggle"; }
 ```
 
-Enable graphical boot:
+---
+
+# GDM + GNOME Fallback
+
+GDM provides the graphical login screen.
+
+The following GNOME components are installed:
+
+```text
+gdm
+gnome-shell
+gnome-session
+gnome-control-center
+```
+
+The full Fedora Workstation package set is not required.
+
+GDM provides two useful sessions:
+
+```text
+GDM
+ │
+ ├── niri
+ │     └── primary desktop
+ │
+ └── GNOME
+       └── fallback / settings
+```
+
+GNOME is useful when a GTK/GNOME setting is easier to manage graphically.
+
+Graphical boot is enabled with:
 
 ```bash
 sudo systemctl set-default graphical.target
 sudo systemctl enable gdm
 ```
 
-Then reboot:
+---
 
-```bash
-sudo reboot
-```
+# GTK / libadwaita Dark Mode
 
-GDM should offer both **niri** and **GNOME** sessions. Use niri normally and GNOME when you want an easy GUI for GNOME/GTK-oriented settings.
+GTK applications initially used the light color scheme.
 
-If you previously put this in `~/.zshrc`, remove it once GDM is being used:
-
-```zsh
-if [[ -z "$WAYLAND_DISPLAY" && "$XDG_VTNR" == "1" ]]; then
-    exec /usr/bin/niri-session
-fi
-```
-
-## 7. GTK/libadwaita dark mode
-
-Satty initially opened with a light interface. The setting that fixed it was:
+The persistent dark-mode preference is:
 
 ```bash
 gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
@@ -213,70 +408,99 @@ Expected:
 'prefer-dark'
 ```
 
-This persists; it does not need to be placed in `.zshrc`.
-
-Useful discovery commands for future GTK/GNOME settings:
+Useful commands for discovering GTK/GNOME settings:
 
 ```bash
 gsettings list-schemas
+```
+
+Search for a schema:
+
+```bash
+gsettings list-schemas | grep -i interface
+```
+
+Inspect all settings:
+
+```bash
 gsettings list-recursively org.gnome.desktop.interface
-gsettings list-keys org.gnome.desktop.interface
+```
+
+Describe a setting:
+
+```bash
 gsettings describe org.gnome.desktop.interface color-scheme
+```
+
+Display valid values:
+
+```bash
 gsettings range org.gnome.desktop.interface color-scheme
 ```
 
-## 8. Cursor settings
+---
 
-The GTK cursor setting can be inspected with:
+# Cursor Theme
+
+GTK cursor configuration can be inspected with:
 
 ```bash
 gsettings get org.gnome.desktop.interface cursor-theme
 gsettings get org.gnome.desktop.interface cursor-size
 ```
 
-After installing a Rose Pine cursor theme, use its **exact installed theme directory name**:
+Example:
 
-```bash
-gsettings set org.gnome.desktop.interface cursor-theme 'THEME_DIRECTORY_NAME'
-gsettings set org.gnome.desktop.interface cursor-size 24
+```text
+org.gnome.desktop.interface cursor-size 24
+org.gnome.desktop.interface cursor-theme 'Adwaita'
 ```
 
-For niri, the equivalent compositor-side configuration is:
+After installing a custom cursor theme:
+
+```bash
+gsettings set org.gnome.desktop.interface cursor-theme 'THEME_NAME'
+```
+
+For niri:
 
 ```kdl
 cursor {
-    xcursor-theme "THEME_DIRECTORY_NAME"
+    xcursor-theme "THEME_NAME"
     xcursor-size 24
 }
 ```
 
-Find installed cursor themes with:
+---
 
-```bash
-find ~/.local/share/icons ~/.icons /usr/share/icons \
-    -name index.theme -exec grep -H '^Name=' {} \; 2>/dev/null
+# XDG Desktop Portals
+
+A minimal Fedora installation does not automatically include all the desktop integration normally provided by Workstation.
+
+The system uses:
+
+```text
+xdg-desktop-portal
+xdg-desktop-portal-gtk
+xdg-desktop-portal-kde
 ```
 
-## 9. Firefox file picker / XDG portals
+These are important for functionality such as:
 
-On the Minimal build, clicking Firefox's attachment control initially did nothing because the desktop portal/file chooser stack was not fully present.
+- Firefox file selection
+- attachment dialogs
+- screen sharing
+- desktop integration
 
-Install:
+The KDE portal is used for the file chooser.
 
-```bash
-sudo dnf install \
-    xdg-desktop-portal \
-    xdg-desktop-portal-gtk \
-    xdg-desktop-portal-kde
-```
-
-Create:
+Configuration:
 
 ```text
 ~/.config/xdg-desktop-portal/niri-portals.conf
 ```
 
-with:
+Example:
 
 ```ini
 [preferred]
@@ -284,40 +508,43 @@ default=gtk;
 org.freedesktop.impl.portal.FileChooser=kde;
 ```
 
-Restart the portal or log out/in:
-
-```bash
-systemctl --user restart xdg-desktop-portal
-```
-
-Check:
+Check portal status:
 
 ```bash
 systemctl --user status xdg-desktop-portal
 ```
 
-Firefox can be forced to use the portal through `about:config` using its XDG desktop portal file-picker preference if necessary.
+---
 
-## 10. Screenshot stack: grim + slurp + Satty
+# Audio
 
-The screenshot script uses:
+Audio is provided by:
 
-- `slurp` — select a Wayland region
-- `grim` — capture it
-- `satty` — annotate/edit it
-
-Install the Fedora packages:
-
-```bash
-sudo dnf install grim slurp wl-clipboard
+```text
+PipeWire
+WirePlumber
 ```
 
-Satty was installed through COPR because it was not available from the enabled Fedora repos at the time of this build:
+These provide the audio infrastructure normally installed automatically by Fedora desktop editions.
 
-```bash
-sudo dnf install dnf-plugins-core
-sudo dnf copr enable mineiro/satty
-sudo dnf install satty
+---
+
+# Screenshots
+
+The Wayland screenshot stack consists of:
+
+```text
+slurp
+  ↓
+select region
+
+grim
+  ↓
+capture image
+
+satty
+  ↓
+annotate/edit
 ```
 
 Screenshot script:
@@ -326,165 +553,312 @@ Screenshot script:
 ~/.config/niri/screenshot.sh
 ```
 
+Example:
+
 ```bash
 #!/usr/bin/env bash
-set -euo pipefail
 
 geometry="$(slurp)"
 [[ -n "$geometry" ]] || exit 0
+
 grim -g "$geometry" - | satty --no-window-decoration -f -
 ```
 
-Make it executable:
+Satty is installed using COPR:
 
 ```bash
-chmod +x ~/.config/niri/screenshot.sh
+sudo dnf copr enable mineiro/satty
+sudo dnf install satty
 ```
 
-Satty looks for:
+Satty uses the GTK/libadwaita color preference, so dark mode is controlled by:
+
+```bash
+gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+```
+
+---
+
+# Neovim
+
+Neovim configuration is stored in:
 
 ```text
-~/.config/satty/config.toml
+~/.dotfiles/nvim/
 ```
 
-The GTK dark preference described above is what made the Satty UI dark.
+and linked to:
 
-## 11. Desktop plumbing worth installing on Minimal
+```text
+~/.config/nvim/
+```
 
-A full Fedora desktop normally supplies these automatically. On a custom Minimal/niri build they should be deliberate:
+Verify:
 
 ```bash
-sudo dnf install \
-    pipewire \
-    wireplumber \
-    polkit \
-    xdg-user-dirs \
-    xdg-desktop-portal \
-    xdg-desktop-portal-gtk \
-    xdg-desktop-portal-kde \
-    wl-clipboard
+nvim --version
 ```
 
-These cover audio/session routing, privilege prompts, standard user directories, file pickers/screen sharing integration, and Wayland clipboard utilities.
+Because the complete Neovim configuration is stored in Git, plugins and editor behavior can be reconstructed automatically after reinstalling Fedora.
 
-## 12. Docker and containerlab
+---
 
-Docker CE can be installed from Docker's Fedora repository.
+# Docker
+
+Docker support is optional.
+
+Install through the bootstrap script with:
 
 ```bash
-sudo dnf install dnf-plugins-core
-
-sudo dnf config-manager addrepo \
-    --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
-
-sudo dnf install \
-    docker-ce \
-    docker-ce-cli \
-    containerd.io \
-    docker-buildx-plugin \
-    docker-compose-plugin
-
-sudo systemctl enable --now docker
-sudo usermod -aG docker "$USER"
+--with-docker
 ```
 
-Containerlab:
+The current user is added to:
+
+```text
+docker
+```
+
+After installation, completely log out and back in before testing:
 
 ```bash
-bash -c "$(curl -sL https://get.containerlab.dev)"
+docker ps
 ```
 
-For the VS Code/VSCodium containerlab extension, the user needed membership in both `docker` and `clab_admins`:
+---
+
+# Containerlab
+
+Containerlab support is optional:
 
 ```bash
-sudo groupadd -f clab_admins
-sudo usermod -aG docker,clab_admins "$USER"
+--with-containerlab
 ```
 
-Completely log out and back in afterward so the session inherits the new groups.
+The workstation uses the groups:
+
+```text
+docker
+clab_admins
+```
 
 Verify:
 
 ```bash
 id
-docker ps
-containerlab version
 ```
 
-## 13. Current configuration philosophy
+The VS Code/VSCodium Containerlab extension requires the appropriate group permissions.
 
-The resulting system is intentionally layered:
+After changing group membership, completely log out and back in.
+
+---
+
+# Network Configuration
+
+Current static LAN configuration:
 
 ```text
-Fedora Minimal
-      │
-      ├── system services
-      │
-      ├── GDM
-      │     ├── GNOME fallback/settings
-      │     └── niri
-      │          └── Noctalia
-      │
-      ├── XDG portals
-      ├── PipeWire/WirePlumber
-      ├── GTK/libadwaita settings via gsettings
-      └── user applications/config
+Address: 192.168.4.112/24
+Gateway: 192.168.4.1
+DNS:     192.168.4.1
 ```
 
-The useful part of this approach is not only lower RAM usage; it is knowing which component owns each desktop function.
-
-When something does not work after a Minimal install, identify the subsystem:
-
-```text
-Dark theme / cursor       → GTK/libadwaita + gsettings
-File chooser/screen share → xdg-desktop-portal
-Audio                     → PipeWire + WirePlumber
-Privilege dialogs         → polkit
-Wayland screenshot        → grim/slurp/Satty
-Session startup           → GDM/niri
-Shell                     → Zsh
-Containers                → Docker/containerlab
-```
-
-## 14. Bootstrap script
-
-Use the accompanying:
-
-```text
-bootstrap-fedora44-niri.sh
-```
-
-Normal desktop setup:
+Find the NetworkManager connection:
 
 ```bash
-chmod +x bootstrap-fedora44-niri.sh
-./bootstrap-fedora44-niri.sh
+nmcli connection show
 ```
 
-Add Satty:
+Example configuration:
 
 ```bash
-./bootstrap-fedora44-niri.sh --with-satty-copr
+sudo nmcli connection modify "Wired connection 1" \
+    ipv4.method manual \
+    ipv4.addresses 192.168.4.112/24 \
+    ipv4.gateway 192.168.4.1 \
+    ipv4.dns 192.168.4.1
 ```
 
-Add Docker/containerlab:
+Activate:
 
 ```bash
-./bootstrap-fedora44-niri.sh \
+sudo nmcli connection up "Wired connection 1"
+```
+
+The bootstrap script can configure this interactively with:
+
+```bash
+--configure-network
+```
+
+---
+
+# Updating Dotfiles
+
+Because the live configuration is linked to this repository, configuration changes can be committed directly.
+
+Check:
+
+```bash
+cd ~/.dotfiles
+git status
+```
+
+Commit changes:
+
+```bash
+git add .
+git commit -m "Update desktop configuration"
+git push
+```
+
+Examples:
+
+```bash
+git commit -m "Update niri keybindings"
+```
+
+```bash
+git commit -m "Update Neovim config"
+```
+
+```bash
+git commit -m "Update Kitty theme"
+```
+
+---
+
+# Fresh Install Recovery
+
+The eventual goal is for a fresh Fedora installation to require approximately:
+
+```bash
+sudo dnf install git
+```
+
+Then:
+
+```bash
+git clone git@github.com:MrBrooks89/fedora-niri-dotfiles.git ~/.dotfiles
+```
+
+Then:
+
+```bash
+cd ~/.dotfiles
+chmod +x bootstrap-fedora44-niri-v2.sh
+./bootstrap-fedora44-niri-v2.sh \
+    --with-nerd-font \
+    --with-satty-copr \
     --with-docker \
     --with-containerlab
 ```
 
-Configure the static IP interactively:
+Finally:
 
 ```bash
-./bootstrap-fedora44-niri.sh --configure-network
+sudo reboot
 ```
 
-Everything:
+After reboot:
+
+```text
+GDM
+ ↓
+niri
+ ↓
+Noctalia
+ ↓
+Kitty / Zsh / Starship
+ ↓
+existing dotfiles restored
+```
+
+The repository serves as the **single source of truth for the workstation configuration**.
+
+---
+
+# Useful Verification Commands
+
+Check desktop components:
 
 ```bash
-./bootstrap-fedora44-niri.sh --all
+command -v niri
+command -v noctalia
+command -v kitty
 ```
 
-The script intentionally **does not overwrite existing user configuration files**. For a truly repeatable rebuild, the next improvement is to keep your niri, Noctalia, Kitty, Satty, Zsh, and other dotfiles in a Git repository and have the bootstrap script clone/symlink them after package installation.
+Check development tools:
+
+```bash
+command -v nvim
+command -v eza
+command -v starship
+```
+
+Check fonts:
+
+```bash
+fc-match "JetBrainsMono Nerd Font"
+```
+
+Check GTK theme:
+
+```bash
+gsettings get org.gnome.desktop.interface color-scheme
+```
+
+Check portal:
+
+```bash
+systemctl --user status xdg-desktop-portal
+```
+
+Check groups:
+
+```bash
+id
+```
+
+Check Docker:
+
+```bash
+docker ps
+```
+
+Check memory:
+
+```bash
+free -h
+```
+
+or:
+
+```bash
+btop
+```
+
+## Philosophy
+
+Instead of starting with a complete desktop environment and removing unwanted components, this build starts with Fedora Minimal and adds each required layer deliberately:
+
+```text
+Fedora
+  ↓
+system services
+  ↓
+GDM
+  ↓
+niri
+  ↓
+Noctalia
+  ↓
+desktop plumbing
+  ↓
+applications
+  ↓
+dotfiles
+```
+
+This keeps the workstation relatively lightweight while making it clear which component is responsible for each part of the desktop.
