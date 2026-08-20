@@ -1,0 +1,100 @@
+# General Starship settings
+add_newline = false
+command_timeout = 1000
+
+# Primary prompt format
+format = """
+$os$hostname$directory$git_branch$git_status$python$golang$nodejs$rust$character
+-->
+"""
+
+# Secondary info on the right
+right_format = "$cmd_duration$time"
+
+# Character module
+[character]
+success_symbol = "[󰄬](bold green) "
+error_symbol = "[󰅖](bold red) "
+
+# OS module
+[os]
+disabled = false
+format = "[$symbol](bold white) "
+[os.symbols]
+Ubuntu = "󰕈 "
+Macos = "󰀵 "
+
+# Hostname module
+[hostname]
+ssh_only = false
+format = "on [$hostname](bold yellow) "
+disabled = false
+ssh_symbol = " "
+
+# Directory module
+[directory]
+style = "bold blue"
+truncation_length = 3
+fish_style_pwd_dir_length = 1
+home_symbol = "󰋜 "
+read_only = " 󰌾"
+read_only_style = "197"
+format = "at [$path]($style)[$read_only]($read_only_style) "
+
+# Python module
+[python]
+symbol = " "
+format = """via [$symbol$pyenv_prefix($version )($virtualenv )]($style)"""
+style = "bold yellow"
+pyenv_version_name = true
+
+# Git branch module
+[git_branch]
+symbol = " "
+format = "via [$symbol$branch]($style) "
+truncation_symbol = "…/"
+style = "bold red"
+
+# Git status module
+[git_status]
+format = "([$all_status$ahead_behind]($style) )"
+style = "bold green"
+conflicted = "🏳 "
+up_to_date = "󰄬 "
+untracked = " "
+ahead = "⇡"
+diverged = "⇕⇡⇣"
+behind = "⇣"
+stashed = "󰓗 "
+modified = " "
+staged = "󰐖 "
+renamed = "󰁔 "
+deleted = " "
+
+# Command duration module
+[cmd_duration]
+min_time = 0
+format = "took [$duration]($style) "
+style = "dimmed yellow"
+
+# Time module
+[time]
+disabled = false
+time_format = "%r"
+format = "[[ 󱑍 $time ](fg:#8DFBD2)]($style)"
+
+# Other language/tool modules
+[golang]
+symbol = " "
+
+[nodejs]
+symbol = " "
+
+[rust]
+symbol = " "
+
+[aws]
+symbol = "  "
+
+[java]
+symbol = " "

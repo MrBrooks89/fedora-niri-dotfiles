@@ -1,0 +1,416 @@
+cursor {
+    xcursor-theme "BreezeX-RosePine-Linux"
+    xcursor-size 32
+}
+input {
+    focus-follows-mouse max-scroll-amount="95%"
+    keyboard {
+        xkb {
+
+            layout "us"
+        }
+        numlock
+    }
+
+    // Next sections include libinput settings.
+    // Omitting settings disables them, or leaves them at their default values.
+    // All commented-out settings here are examples, not defaults.
+    touchpad {
+        // off
+        tap
+        natural-scroll
+    }
+
+    mouse {
+        accel-speed 0.0
+        accel-profile "flat"
+    }
+
+    trackpoint {
+         off
+    }
+
+}
+
+// Surface Go Display
+output "eDP-1" {
+    scale 1.5
+}
+
+// Monitor 2
+output "DP-1" {
+    mode "1680x1050@59.883"
+    scale 1
+    transform "normal"
+    position x=2560 y=0
+    background-color "#00000000"
+}
+// Monitor 1
+output "HDMI-A-1" {
+  mode "2560x1440@84.983"
+  scale 1
+  transform "normal"
+  position x=0 y=0
+  background-color "#00000000"
+}
+
+
+layout {
+    // Set gaps around windows in logical pixels.
+    gaps 6
+    center-focused-column "never"
+
+    // You can customize the widths that "switch-preset-column-width" (Mod+R) toggles between.
+    preset-column-widths {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+
+
+
+    // You can change the default width of the new windows.
+    default-column-width { proportion 0.5; }
+
+
+    focus-ring {
+        off
+    }
+
+    border {
+        width 4
+        active-color "#540099ff"
+        inactive-color "#5b4e65"
+    }
+
+    // You can enable drop shadows for windows.
+    shadow {
+        on
+        softness 10
+        spread 3
+        offset x=0 y=2
+        draw-behind-window false
+        color "#00000080"
+        inactive-color "#00000060"
+    }
+
+    insert-hint {
+        // off
+        color "#ffc87f80"
+        gradient from="#ffbb6680" to="#ffc88080" angle=45 relative-to="workspace-view"
+    }
+    tab-indicator {
+        // off
+        hide-when-single-tab
+        place-within-column
+        gap 5
+        width 4
+        length total-proportion=1.0
+        position "left"
+        gaps-between-tabs 2
+        corner-radius 8
+        active-color "bf616a"
+        inactive-color "d08770"
+    }
+
+
+}
+
+environment {
+    QT_QPA_PLATFORMTHEME "qt6ct"
+    QT_STYLE_OVERRIDE "kvantum"
+}
+
+
+spawn-at-startup "noctalia"
+
+
+hotkey-overlay {
+    skip-at-startup
+}
+
+screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+
+
+animations {
+    slowdown 2.0
+    window-open {
+      duration-ms 200
+      curve "linear"
+      custom-shader r"
+
+    vec4 expanding_circle(vec3 coords_geo, vec3 size_geo) {
+    vec3 coords_tex = niri_geo_to_tex * coords_geo;
+    vec4 color = texture2D(niri_tex, coords_tex.st);
+    vec2 coords = (coords_geo.xy - vec2(0.5, 0.5)) * size_geo.xy * 2.0;
+    coords = coords / length(size_geo.xy);
+    float p = niri_clamped_progress;
+    if (p * p <= dot(coords, coords))
+    color = vec4(0.0);
+
+    return color;
+  }
+
+    vec4 open_color(vec3 coords_geo, vec3 size_geo) {
+    return expanding_circle(coords_geo, size_geo);
+   }
+  "
+ }
+
+   window-close {
+      duration-ms 250
+      curve "linear"
+      custom-shader r"
+
+    vec4 fall_and_rotate(vec3 coords_geo, vec3 size_geo) {
+    float progress = niri_clamped_progress * niri_clamped_progress;
+    vec2 coords = (coords_geo.xy - vec2(0.5, 1.0)) * size_geo.xy;
+    coords.y -= progress * 1440.0;
+    float random = (niri_random_seed - 0.5) / 2.0;
+    random = sign(random) - random;
+    float max_angle = 0.5 * random;
+    float angle = progress * max_angle;
+    mat2 rotate = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
+    coords = rotate * coords;
+    coords_geo = vec3(coords / size_geo.xy + vec2(0.5, 1.0), 1.0);
+    vec3 coords_tex = niri_geo_to_tex * coords_geo;
+    vec4 color = texture2D(niri_tex, coords_tex.st);
+
+    return color;
+  }
+
+    vec4 close_color(vec3 coords_geo, vec3 size_geo) {
+    return fall_and_rotate(coords_geo, size_geo);
+     }
+    "
+   }
+}
+
+window-rule {
+    geometry-corner-radius 8
+    clip-to-geometry true
+}
+
+
+
+// Set all apps to have no gaps and no background color by default, and be fully opaque.
+window-rule {
+    draw-border-with-background false
+    match is-active=true
+    match is-active=false
+    opacity 1.0
+}
+
+window-rule {
+  match app-id="steam_app_*"
+  open-floating true
+  open-fullscreen true
+}
+
+
+// Open the apps in full screen mode
+window-rule {
+    match app-id="firefox"
+    match app-id="joplin"
+    open-maximized true
+}
+
+window-rule {
+match app-id="mpv"
+match app-id="com.gabm.satty"
+open-floating true
+}
+
+//window-rule {
+//    match app-id="kitty"
+//
+//    background-effect {
+//        xray true
+//        blur true
+//        noise 0.05
+//        saturation 3
+//    }
+//}
+
+
+binds {
+    // Show keybinds
+    Mod+K { show-hotkey-overlay; }
+    // Open notes in nvim
+    Mod+N hotkey-overlay-title="Open Joplin Notes" { spawn "joplin-desktop"; }
+    // Open Browser
+    Mod+B hotkey-overlay-title="Open Browser: Zen" {spawn "firefox";}
+    // Open Music player Cider
+    Mod+M hotkey-overlay-title="Open Music Player: Cider" {spawn-sh "appimage-run ~/Documents/cider-v3.1.8-linux-x64.AppImage";}
+    // Open Teams for Linux in XWayland
+    Mod+T {spawn-sh "env NIXOS_OZONE_WL=0 teams-for-linux"; }
+    // Open RingCentral
+    Mod+R hotkey-overlay-title="Open RingCentral Phone App" {spawn "ringcentral-embeddable";}
+
+
+    // Suggested binds for running programs: terminal, app launcher, screen locker.
+    Mod+Return hotkey-overlay-title="Open a Terminal: kitty" { spawn "kitty"; }
+    Mod+D hotkey-overlay-title="Application Launcher: Noctalia" { spawn-sh "noctalia msg panel-toggle launcher"; }
+    Mod+L hotkey-overlay-title="Lock the Screen: Noctalia Lockscreen" { spawn-sh "noctalia msg session lock"; }
+    Mod+E hotkey-overlay-title="File Explorer" {spawn "dolphin"; }
+
+
+    // Play/Pause and Next for music player using playerctl
+    F9 { spawn-sh "playerctl play-pause"; }
+    F10 { spawn-sh  "playerctl next"; }
+
+    // View all workspaces
+    Mod+O repeat=false { toggle-overview; }
+    // Close window
+    Mod+Q repeat=false { close-window; }
+
+    Mod+Left  { focus-column-left; }
+    Mod+Down  { focus-window-down; }
+    Mod+Up    { focus-window-up; }
+    Mod+Right { focus-column-right; }
+    //Mod+H     { focus-column-left; }
+    //Mod+J     { focus-window-down; }
+    //Mod+K     { focus-window-up; }
+    //Mod+L     { focus-column-right; }
+
+    Mod+Ctrl+Left  { move-column-left; }
+    Mod+Ctrl+Down  { move-window-down; }
+    Mod+Ctrl+Up    { move-window-up; }
+    Mod+Ctrl+Right { move-column-right; }
+    Mod+Ctrl+H     { move-column-left; }
+    Mod+Ctrl+J     { move-window-down; }
+    Mod+Ctrl+K     { move-window-up; }
+    Mod+Ctrl+L     { move-column-right; }
+
+    Mod+Home { focus-column-first; }
+    Mod+End  { focus-column-last; }
+    Mod+Ctrl+Home { move-column-to-first; }
+    Mod+Ctrl+End  { move-column-to-last; }
+
+    Mod+Shift+Left  { focus-monitor-left; }
+    Mod+Shift+Down  { focus-monitor-down; }
+    Mod+Shift+Up    { focus-monitor-up; }
+    Mod+Shift+Right { focus-monitor-right; }
+    Mod+Shift+H     { focus-monitor-left; }
+    Mod+Shift+J     { focus-monitor-down; }
+    Mod+Shift+K     { focus-monitor-up; }
+    Mod+Shift+L     { focus-monitor-right; }
+
+    Mod+Shift+Ctrl+Left  { move-column-to-monitor-left; }
+    Mod+Shift+Ctrl+Down  { move-column-to-monitor-down; }
+    Mod+Shift+Ctrl+Up    { move-column-to-monitor-up; }
+    Mod+Shift+Ctrl+Right { move-column-to-monitor-right; }
+    Mod+Shift+Ctrl+H     { move-column-to-monitor-left; }
+    Mod+Shift+Ctrl+J     { move-column-to-monitor-down; }
+    Mod+Shift+Ctrl+K     { move-column-to-monitor-up; }
+    Mod+Shift+Ctrl+L     { move-column-to-monitor-right; }
+
+    // Power Menu Using Noctalia Shell
+    Mod+P { spawn-sh "noctalia msg panel-toggle session"; }
+
+
+    // Binds to move workspaces
+    Mod+Page_Down      { focus-workspace-down; }
+    Mod+Page_Up        { focus-workspace-up; }
+    Mod+U              { focus-workspace-down; }
+    Mod+I              { focus-workspace-up; }
+    Mod+Ctrl+Page_Down { move-column-to-workspace-down; }
+    Mod+Ctrl+Page_Up   { move-column-to-workspace-up; }
+    Mod+Ctrl+U         { move-column-to-workspace-down; }
+    Mod+Ctrl+I         { move-column-to-workspace-up; }
+
+    // Binds to move workspaces
+    Mod+Shift+Page_Down { move-workspace-down; }
+    Mod+Shift+Page_Up   { move-workspace-up; }
+    Mod+Shift+U         { move-workspace-down; }
+    Mod+Shift+I         { move-workspace-up; }
+
+    // Bind to allow scrolling down through workspaces and set cooldown to prevent scrolling to fast
+    Mod+WheelScrollDown      cooldown-ms=150 { focus-workspace-down; }
+    Mod+WheelScrollUp        cooldown-ms=150 { focus-workspace-up; }
+    //Mod+Ctrl+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
+    //Mod+Ctrl+WheelScrollUp   cooldown-ms=150 { move-column-to-workspace-up; }
+
+    // Allows for scroll side to side through active windows
+    Mod+Shift+WheelScrollDown      { focus-column-right; }
+    Mod+Shift+WheelScrollUp        { focus-column-left; }
+    // Binds to for moving workspaces
+    Mod+1 { focus-workspace 1; }
+    Mod+2 { focus-workspace 2; }
+    Mod+3 { focus-workspace 3; }
+    Mod+4 { focus-workspace 4; }
+    Mod+5 { focus-workspace 5; }
+    Mod+6 { focus-workspace 6; }
+    Mod+7 { focus-workspace 7; }
+    Mod+8 { focus-workspace 8; }
+    Mod+9 { focus-workspace 9; }
+    Mod+Ctrl+1 { move-column-to-workspace 1; }
+    Mod+Ctrl+2 { move-column-to-workspace 2; }
+    Mod+Ctrl+3 { move-column-to-workspace 3; }
+    Mod+Ctrl+4 { move-column-to-workspace 4; }
+    Mod+Ctrl+5 { move-column-to-workspace 5; }
+    Mod+Ctrl+6 { move-column-to-workspace 6; }
+    Mod+Ctrl+7 { move-column-to-workspace 7; }
+    Mod+Ctrl+8 { move-column-to-workspace 8; }
+    Mod+Ctrl+9 { move-column-to-workspace 9; }
+
+    // Alternatively, there are commands to move just a single window:
+    // Mod+Ctrl+1 { move-window-to-workspace 1; }
+
+    // Switches focus between the current and the previous workspace.
+    Mod+Tab { focus-workspace-previous; }
+    Mod+W { toggle-column-tabbed-display; }
+
+    // The following binds move the focused window in and out of a column.
+    Mod+BracketLeft  { consume-or-expel-window-left; }
+    Mod+BracketRight { consume-or-expel-window-right; }
+
+    // Consume one window from the right to the bottom of the focused column.
+    Mod+Comma  { consume-or-expel-window-left; }
+    // Expel the bottom window from the focused column to the right.
+    Mod+Period { consume-or-expel-window-right; }
+
+    //Mod+R { switch-preset-column-width; }
+    // Cycling through the presets in reverse order is also possible.
+    // Mod+R { switch-preset-column-width-back; }
+    Mod+Shift+R { switch-preset-window-height; }
+    Mod+Ctrl+R { reset-window-height; }
+    Mod+F { maximize-column; }
+    Mod+Shift+F { fullscreen-window; }
+
+    // Expand the focused column to space not taken up by other fully visible columns.
+    // Makes the column "fill the rest of the space".
+    Mod+Ctrl+F { expand-column-to-available-width; }
+
+    Mod+C { center-column; }
+
+    // Center all fully visible columns on screen.
+    Mod+Ctrl+C { center-visible-columns; }
+
+    // Finer width adjustments.
+    Mod+Minus { set-column-width "-10%"; }
+    Mod+Equal { set-column-width "+10%"; }
+
+    // Finer height adjustments when in column with other windows.
+    Mod+Shift+Minus { set-window-height "-10%"; }
+    Mod+Shift+Equal { set-window-height "+10%"; }
+
+    // Move the focused window between the floating and the tiling layout.
+    Mod+V       { toggle-window-floating; }
+    Mod+Shift+V { switch-focus-between-floating-and-tiling; }
+
+    // Screenshot
+    Print { screenshot; }
+    Mod+S hotkey-overlay-title="Screenshot with grim + slurp" {spawn-sh "~/.config/niri/screenshot.sh";}
+
+
+    Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
+
+    // The quit action will show a confirmation dialog to avoid accidental exits.
+    Mod+Shift+E { quit; }
+    Ctrl+Alt+Delete { quit; }
+
+    // Powers off the monitors. To turn them back on, do any input like
+    // moving the mouse or pressing any other key.
+    Mod+Shift+P { power-off-monitors; }
+}
