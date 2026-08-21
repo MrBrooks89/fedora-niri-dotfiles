@@ -223,7 +223,8 @@ sudo dnf -y install \
     xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-kde \
     xdg-user-dirs \
     polkit \
-    grim slurp wl-clipboard
+    grim slurp wl-clipboard \
+    libreoffice
 
 echo "==> Installing GDM + minimal GNOME fallback/settings desktop"
 sudo dnf -y install \
