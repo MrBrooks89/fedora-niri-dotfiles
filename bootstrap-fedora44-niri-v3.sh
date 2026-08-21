@@ -324,9 +324,34 @@ mkdir -p \
     "$HOME/.config/xdg-desktop-portal" \
     "$HOME/Pictures/Screenshots"
 
-# ----------------------------------------------------------------------
-# Select dotfiles source
-# ----------------------------------------------------------------------
+echo "==> Installing Rosé Pine cursor theme"
+
+ROSE_PINE_CURSOR_DIR="$HOME/.local/share/icons/BreezeX-RosePine"
+ROSE_PINE_CURSOR_URL="https://github.com/rose-pine/cursors/releases/latest/download/BreezeX-RosePine-Linux.tar.xz"
+
+if [[ ! -d "$ROSE_PINE_CURSOR_DIR" ]]; then
+    TMP_CURSOR="$(mktemp --suffix=.tar.xz)"
+
+    mkdir -p "$HOME/.local/share/icons"
+
+    curl -fL \
+        --connect-timeout 60 \
+        "$ROSE_PINE_CURSOR_URL" \
+        -o "$TMP_CURSOR"
+
+    tar -xJf "$TMP_CURSOR" \
+        -C "$HOME/.local/share/icons"
+
+    rm -f "$TMP_CURSOR"
+else
+    echo "    Rosé Pine cursor already installed."
+fi
+
+echo "==> Setting Rosé Pine cursor theme"
+
+gsettings set org.gnome.desktop.interface cursor-theme 'BreezeX-RosePine'
+gsettings set org.gnome.desktop.interface cursor-size 24
+
 if [[ -n "$DOTFILES_REPO" ]]; then
     DOTFILES_DIR="$EXTERNAL_DOTFILES_DIR"
 
@@ -360,9 +385,6 @@ else
     echo "    $DOTFILES_DIR"
 fi
 
-# ----------------------------------------------------------------------
-# Restore/symlink dotfiles
-# ----------------------------------------------------------------------
 echo "==> Linking dotfiles"
 
 backup_and_link "$DOTFILES_DIR/.zshrc"        "$HOME/.zshrc"
@@ -377,9 +399,6 @@ if [[ -d "$BACKUP_DIR" ]]; then
     echo "    previous configs saved under: $BACKUP_DIR"
 fi
 
-# ----------------------------------------------------------------------
-# Fallback configs only when selected dotfiles repo did not provide them
-# ----------------------------------------------------------------------
 NIRI_DIR="$HOME/.config/niri"
 NIRI_CONFIG="$NIRI_DIR/config.kdl"
 
