@@ -45,6 +45,7 @@ WITH_DOCKER=0
 WITH_CONTAINERLAB=0
 WITH_SATTY_COPR=0
 WITH_NERD_FONT=0
+WITH_PROTONUP_RS=0
 CONFIGURE_NETWORK=0
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -66,6 +67,7 @@ Options:
   --with-satty-copr        Enable mineiro/satty COPR and install Satty
   --with-docker            Install Docker CE and add current user to docker
   --with-containerlab      Install containerlab and add current user to clab_admins
+  --with-protonup-rs       Install Protonup-rs into ~/.local/bin
   --configure-network      Configure 192.168.4.112/24, gateway/DNS 192.168.4.1
   --all                    Enable all optional software
   -h, --help               Show this help
@@ -102,12 +104,14 @@ while [[ $# -gt 0 ]]; do
         --with-containerlab) WITH_CONTAINERLAB=1 ;;
         --with-satty-copr)   WITH_SATTY_COPR=1 ;;
         --with-nerd-font)    WITH_NERD_FONT=1 ;;
+        --with-protonup-rs) WITH_PROTONUP_RS=1 ;;
         --configure-network) CONFIGURE_NETWORK=1 ;;
         --all)
             WITH_DOCKER=1
             WITH_CONTAINERLAB=1
             WITH_SATTY_COPR=1
             WITH_NERD_FONT=1
+            WITH_PROTONUP_RS=1
             CONFIGURE_NETWORK=1
             ;;
         -h|--help)
@@ -266,6 +270,45 @@ if [[ "$WITH_NERD_FONT" -eq 1 ]]; then
 else
     echo "NOTE: Fedora JetBrains Mono is installed."
     echo "      Use --with-nerd-font if your prompt/icons need Nerd Font glyphs."
+fi
+
+if [[ "$WITH_PROTONUP_RS" -eq 1 ]]; then
+    echo "==> Installing ProtonUp-rs"
+
+    case "$(uname -m)" in
+        x86_64)
+            ARCH="amd64"
+            ;;
+        aarch64)
+            ARCH="arm64"
+            ;;
+        *)
+            echo "ERROR: Unsupported architecture for ProtonUp-rs: $(uname -m)" >&2
+            exit 1
+            ;;
+    esac
+
+    FILE="protonup-rs-linux-$ARCH.tar.gz"
+    TMP_DIR="$(mktemp -d)"
+
+    curl -fL \
+        --connect-timeout 60 \
+        "https://github.com/auyer/Protonup-rs/releases/latest/download/$FILE" \
+        -o "$TMP_DIR/$FILE"
+
+    tar -xzf "$TMP_DIR/$FILE" -C "$TMP_DIR"
+
+    mkdir -p "$HOME/.local/bin"
+
+    install -m 755 \
+        "$TMP_DIR/protonup-rs" \
+        "$HOME/.local/bin/protonup-rs"
+
+    rm -rf "$TMP_DIR"
+
+    echo "    Installed: $HOME/.local/bin/protonup-rs"
+else
+    echo "NOTE: ProtonUp-rs not installed. Use --with-protonup-rs if needed."
 fi
 
 echo "==> Setting Zsh as login shell"
