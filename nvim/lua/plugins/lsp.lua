@@ -16,7 +16,7 @@ return {
       
       require("mason").setup()
       require("mason-lspconfig").setup({
-        ensure_installed = { "pyright", "gopls", "rust_analyzer", "rnix", "bashls", "lua_ls", "taplo", "yamlls"},
+        ensure_installed = { "pyright", "gopls", "rust_analyzer", "bashls", "lua_ls", "taplo", "yamlls"},
       })
 
       require("lspsaga").setup({
@@ -26,7 +26,7 @@ return {
       local capabilities = require('blink.cmp').get_lsp_capabilities()
       local lspconfig = require("lspconfig")
 
-      local servers = { "pyright", "gopls", "rust_analyzer", "rnix", "bashls", "lua_ls", "taplo", "yamlls" }
+      local servers = { "pyright", "gopls", "rust_analyzer", "bashls", "lua_ls", "taplo", "yamlls" }
       for _, lsp in ipairs(servers) do
         lspconfig[lsp].setup({
           capabilities = capabilities,
