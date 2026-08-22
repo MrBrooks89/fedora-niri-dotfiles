@@ -37,7 +37,7 @@ fedora-niri-dotfiles/
 ├── starship.toml
 ├── .gitignore
 ├── README.md
-└── bootstrap-fedora44-niri-v2.sh
+└── bootstrap-fedora44-niri-v3.sh
 ```
 
 The bootstrap script creates symlinks:
@@ -95,7 +95,7 @@ Then:
 
 ```bash
 cd ~/.dotfiles
-chmod +x bootstrap-fedora44-niri-v2.sh
+chmod +x bootstrap-fedora44-niri-v3.sh
 ```
 
 ### 4. Run the bootstrap
@@ -103,7 +103,7 @@ chmod +x bootstrap-fedora44-niri-v2.sh
 Because the script lives inside this repo, **no dotfiles option is required**:
 
 ```bash
-./bootstrap-fedora44-niri-v2.sh
+./bootstrap-fedora44-niri-v3.sh
 ```
 
 The script automatically uses its own directory as the dotfiles source.
@@ -111,7 +111,7 @@ The script automatically uses its own directory as the dotfiles source.
 A fuller install:
 
 ```bash
-./bootstrap-fedora44-niri-v2.sh \
+./bootstrap-fedora44-niri-v3.sh \
     --with-nerd-font \
     --with-satty-copr \
     --with-docker \
@@ -121,7 +121,7 @@ A fuller install:
 To also configure the static network profile interactively:
 
 ```bash
-./bootstrap-fedora44-niri-v2.sh --all
+./bootstrap-fedora44-niri-v3.sh --all
 ```
 
 Then reboot:
@@ -139,7 +139,7 @@ The same bootstrap can use another dotfiles repository instead of the repo conta
 Example:
 
 ```bash
-./bootstrap-fedora44-niri-v2.sh \
+./bootstrap-fedora44-niri-v3.sh \
     --dotfiles-repo https://github.com/anotheruser/dotfiles.git
 ```
 
@@ -152,7 +152,7 @@ The alternate repo is cloned to:
 You can choose another destination:
 
 ```bash
-./bootstrap-fedora44-niri-v2.sh \
+./bootstrap-fedora44-niri-v3.sh \
     --dotfiles-repo https://github.com/anotheruser/dotfiles.git \
     --dotfiles-dir ~/.my-dotfiles
 ```
@@ -160,7 +160,7 @@ You can choose another destination:
 Use a specific branch:
 
 ```bash
-./bootstrap-fedora44-niri-v2.sh \
+./bootstrap-fedora44-niri-v3.sh \
     --dotfiles-repo https://github.com/anotheruser/dotfiles.git \
     --dotfiles-branch main
 ```
@@ -281,7 +281,7 @@ DNS:     192.168.4.1
 Run the interactive network setup with:
 
 ```bash
-./bootstrap-fedora44-niri-v2.sh --configure-network
+./bootstrap-fedora44-niri-v3.sh --configure-network
 ```
 
 Manual example:
@@ -331,7 +331,7 @@ The Fedora JetBrains Mono package is installed by default.
 For prompt icons and Nerd Font glyphs:
 
 ```bash
-./bootstrap-fedora44-niri-v2.sh --with-nerd-font
+./bootstrap-fedora44-niri-v3.sh --with-nerd-font
 ```
 
 Verify:
@@ -449,23 +449,32 @@ grim -g "$geometry" - | satty --no-window-decoration -f -
 Install Satty with:
 
 ```bash
-./bootstrap-fedora44-niri-v2.sh --with-satty-copr
+./bootstrap-fedora44-niri-v3.sh --with-satty-copr
 ```
 
 ---
+
+## Steam
+
+Steam:
+Enables the rpmfusion Nonfree repository and installs steam
+
+```bash
+./bootstrap-fedora44-niri-v3.sh --with-steam
+```
 
 ## Docker + containerlab
 
 Docker:
 
 ```bash
-./bootstrap-fedora44-niri-v2.sh --with-docker
+./bootstrap-fedora44-niri-v3.sh --with-docker
 ```
 
 Containerlab:
 
 ```bash
-./bootstrap-fedora44-niri-v2.sh --with-containerlab
+./bootstrap-fedora44-niri-v3.sh --with-containerlab
 ```
 
 Containerlab tooling may require membership in:
@@ -516,9 +525,9 @@ sudo dnf install git
 
 git clone https://github.com/MrBrooks89/fedora-niri-dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
-chmod +x bootstrap-fedora44-niri-v2.sh
+chmod +x bootstrap-fedora44-niri-v3.sh
 
-./bootstrap-fedora44-niri-v2.sh \
+./bootstrap-fedora44-niri-v3.sh \
     --with-nerd-font \
     --with-satty-copr \
     --with-docker \
