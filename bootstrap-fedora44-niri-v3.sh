@@ -472,7 +472,7 @@ else
     echo "NOTE: Satty not installed. Use --with-satty-copr if needed."
 fi
 
-if [[ "$WITH_STEAM" -eq 1]]; then
+if [[ "$WITH_STEAM" -eq 1 ]]; then
     echo "==> Installing Steam From rpmfusion NonFree"
 
     sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
