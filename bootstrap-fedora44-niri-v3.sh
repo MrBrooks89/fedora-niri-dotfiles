@@ -68,6 +68,7 @@ Options:
   --with-docker            Install Docker CE and add current user to docker
   --with-containerlab      Install containerlab and add current user to clab_admins
   --with-protonup-rs       Install Protonup-rs into ~/.local/bin
+  --with-steam             Install Steam
   --configure-network      Configure 192.168.4.112/24, gateway/DNS 192.168.4.1
   --all                    Enable all optional software
   -h, --help               Show this help
@@ -105,6 +106,7 @@ while [[ $# -gt 0 ]]; do
         --with-satty-copr)   WITH_SATTY_COPR=1 ;;
         --with-nerd-font)    WITH_NERD_FONT=1 ;;
         --with-protonup-rs) WITH_PROTONUP_RS=1 ;;
+        --with-steam)       WITH_STEAM=1 ;;
         --configure-network) CONFIGURE_NETWORK=1 ;;
         --all)
             WITH_DOCKER=1
@@ -112,6 +114,7 @@ while [[ $# -gt 0 ]]; do
             WITH_SATTY_COPR=1
             WITH_NERD_FONT=1
             WITH_PROTONUP_RS=1
+            WITH_STEAM=1
             CONFIGURE_NETWORK=1
             ;;
         -h|--help)
@@ -195,7 +198,8 @@ sudo dnf -y install \
     iwlwifi-mvm-firmware \
     jetbrains-mono-fonts \
     zsh-autosuggestions \
-    zsh-syntax-highlighting
+    zsh-syntax-highlighting \
+    google-noto-color-emoji-fonts
 
 echo "==> Enabling NetworkManager"
 sudo systemctl enable --now NetworkManager
@@ -466,6 +470,16 @@ if [[ "$WITH_SATTY_COPR" -eq 1 ]]; then
     sudo dnf -y install satty
 else
     echo "NOTE: Satty not installed. Use --with-satty-copr if needed."
+fi
+
+if [[ "$WITH_STEAM" -eq 1]]; then
+    echo "==> Installing Steam From rpmfusion NonFree"
+
+    sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
+    sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1
+    sudo dnf install steam -y
+else
+    echo "NOTE: Steam not installed. Use --with-steam if needed." 
 fi
 
 if [[ "$WITH_DOCKER" -eq 1 ]]; then
