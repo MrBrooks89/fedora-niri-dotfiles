@@ -1,0 +1,3 @@
+sudo mkdir -p /var/win11
+docker compose up -d
+docker compose logs -f
