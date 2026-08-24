@@ -200,7 +200,9 @@ sudo dnf -y install \
     jetbrains-mono-fonts \
     zsh-autosuggestions \
     zsh-syntax-highlighting \
-    google-noto-color-emoji-fonts
+    google-noto-color-emoji-fonts \
+    unzip \
+    golang
 
 echo "==> Enabling NetworkManager"
 sudo systemctl enable --now NetworkManager
