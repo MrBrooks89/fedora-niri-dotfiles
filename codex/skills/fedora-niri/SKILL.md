@@ -20,7 +20,7 @@ configuration:
 | Kitty | `kitty/` | `~/.config/kitty/` |
 | Neovim | `nvim/` | `~/.config/nvim/` |
 | btop | `btop/` | `~/.config/btop/` |
-| Shell | `.zshrc`, `starship.toml` | `~/.zshrc`, `~/.config/starship.toml` |
+| Shell | `.zshrc`, `starship.toml` | linked `~/.zshrc`; copied `~/.config/starship.toml` |
 | Greeter | `noctalia-greeter/greeter.toml` | `/var/lib/noctalia-greeter/greeter.toml` (installed, not linked) |
 | Diagnostics | `diagnostics/` | `~/.local/bin/diagnose-workstation`, local Codex runner, and user systemd units |
 
@@ -86,6 +86,8 @@ one of its behaviors.
 Noctalia v5 renders built-in templates for Niri, Kitty, btop, and GTK, plus a
 tracked user template for Neovim. Edit template sources under
 `noctalia/templates/`, not generated outputs such as `niri/noctalia.kdl`.
+The tracked `starship.toml` is a bootstrap seed, not the live Noctalia output;
+keep the live file as a regular copy so palette changes do not dirty Git.
 After template changes, run:
 
 ```bash

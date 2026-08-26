@@ -10,7 +10,9 @@ Noctalia Greeter handling login.
 - `noctalia/` is linked to `~/.config/noctalia`.
 - `kitty/`, `nvim/`, and `btop/` are linked to their matching
   `~/.config` directories.
-- `.zshrc` and `starship.toml` are linked into the home configuration.
+- `.zshrc` is linked into the home configuration. `starship.toml` is a tracked
+  seed copied to `~/.config/starship.toml`, because Noctalia rewrites the live
+  copy whenever its wallpaper-derived palette changes.
 - `bootstrap-fedora44-niri-v3.sh` installs packages and creates those links.
 - `codex/skills/fedora-niri/` is linked to `~/.codex/skills/fedora-niri`.
 - `noctalia-greeter/greeter.toml` is installed into the protected greeter state
@@ -32,6 +34,8 @@ explicitly asks for a live-only experiment. Preserve unrelated user changes.
 - Noctalia renders coordinated themes for Niri, Kitty, btop, GTK, and Neovim.
   Edit sources under `noctalia/templates/`; generated theme files listed
   in `.gitignore` are runtime artifacts and must not be committed.
+- Do not symlink the tracked `starship.toml` seed to its live destination;
+  doing so lets Noctalia's palette renderer dirty the Git checkout.
 - `Mod+Space` opens the experimental native Noctalia command-center panel from
   `noctalia/plugins/command-center/`; `Mod+D` opens Noctalia's calculator
   provider and `Mod+Shift+D` opens its emoji provider. The panel must preserve

@@ -53,7 +53,7 @@ The bootstrap script creates symlinks:
 
 ```text
 repo/.zshrc            → ~/.zshrc
-repo/starship.toml     → ~/.config/starship.toml
+repo/starship.toml     → copied to ~/.config/starship.toml
 repo/kitty             → ~/.config/kitty
 repo/niri              → ~/.config/niri
 repo/nvim              → ~/.config/nvim
@@ -65,6 +65,11 @@ repo/codex/skills/fedora-niri
 ```
 
 Existing configs are backed up before links are created.
+
+Starship is the exception to the symlink model: its tracked file is an
+installation seed. The bootstrap copies it to `~/.config/starship.toml` so
+Noctalia can rewrite the live wallpaper-derived palette without modifying the
+Git checkout.
 
 The bootstrap discovers the invoking non-root account, UID, and home directory
 from the local system. Tracked configuration uses `$HOME` or XDG paths, and the
@@ -398,6 +403,10 @@ Starship config:
 ```text
 ~/.config/starship.toml
 ```
+
+This is a runtime copy of the repository's `starship.toml` seed. Noctalia's
+built-in Starship template updates its palette as wallpapers change; those
+generated color changes are intentionally not tracked by Git.
 
 ---
 

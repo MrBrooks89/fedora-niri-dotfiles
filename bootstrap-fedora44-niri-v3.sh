@@ -221,6 +221,24 @@ backup_and_link() {
     echo "    linked: $target -> $source"
 }
 
+backup_and_copy() {
+    local source="$1"
+    local target="$2"
+
+    [[ -f "$source" ]] || return 0
+    mkdir -p "$(dirname "$target")"
+
+    if [[ -e "$target" || -L "$target" ]]; then
+        local relative="${target#$HOME/}"
+        mkdir -p "$BACKUP_DIR/$(dirname "$relative")"
+        mv "$target" "$BACKUP_DIR/$relative"
+        echo "    backed up: $target -> $BACKUP_DIR/$relative"
+    fi
+
+    install -m 0644 "$source" "$target"
+    echo "    copied runtime seed: $target"
+}
+
 echo "==> Updating Fedora"
 sudo dnf -y upgrade --refresh
 
@@ -586,7 +604,7 @@ fi
 echo "==> Linking dotfiles"
 
 backup_and_link "$DOTFILES_DIR/.zshrc"        "$HOME/.zshrc"
-backup_and_link "$DOTFILES_DIR/starship.toml" "$HOME/.config/starship.toml"
+backup_and_copy "$DOTFILES_DIR/starship.toml" "$HOME/.config/starship.toml"
 backup_and_link "$DOTFILES_DIR/kitty"         "$HOME/.config/kitty"
 backup_and_link "$DOTFILES_DIR/niri"          "$HOME/.config/niri"
 backup_and_link "$DOTFILES_DIR/nvim"          "$HOME/.config/nvim"
