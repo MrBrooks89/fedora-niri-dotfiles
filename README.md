@@ -553,8 +553,8 @@ handles clipboard output, and Tesseract handles OCR.
 slurp → grim → Satty
 ```
 
-Satty is installed by the normal bootstrap. To additionally enable the
-`mineiro/satty` COPR source and refresh it from there, use:
+Satty is provided through the `mineiro/satty` COPR rather than Fedora's default
+repositories. Enable that optional source and install Satty with:
 
 ```bash
 ./bootstrap-fedora44-niri-v3.sh --with-satty-copr
