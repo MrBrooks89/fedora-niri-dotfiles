@@ -35,7 +35,6 @@ return {
 
   -- Editing Utilities
   { "windwp/nvim-autopairs", opts = {} },
-  { "numToStr/Comment.nvim", opts = {} },
   { "smoka7/hop.nvim", version = "*", opts = {} },
   { 
     url = "https://codeberg.org/andyg/leap.nvim",
