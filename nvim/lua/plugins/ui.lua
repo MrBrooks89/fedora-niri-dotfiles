@@ -12,6 +12,10 @@ return {
         italic_comment = true,
       })
       vim.cmd([[colorscheme dracula]])
+      local generated_theme = vim.fn.stdpath("cache") .. "/noctalia/neovim.lua"
+      if vim.fn.filereadable(generated_theme) == 1 then
+        dofile(generated_theme)
+      end
     end,
   },
 
@@ -19,7 +23,7 @@ return {
   {
     "nvim-lualine/lualine.nvim",
     dependencies = { "nvim-tree/nvim-web-devicons" },
-    opts = { options = { theme = "dracula" } },
+    opts = { options = { theme = "auto" } },
   },
 
   -- Bufferline (Tabline)

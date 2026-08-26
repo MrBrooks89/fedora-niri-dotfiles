@@ -6,7 +6,7 @@ lang = "en"
 font_family = "JetBrainsMono Nerd Font"
 time_format = "12h"
 corner_radius_scale = 0.5
-clipboard_enabled = false
+clipboard_enabled = true
 
 [shell.animation]
 enabled = true
@@ -31,8 +31,32 @@ mode = "dark"
 pure_black_dark = false
 
 [theme.templates]
-enable_builtin_templates = false
+builtin_ids = ["niri", "kitty", "btop", "gtk3", "gtk4"]
+enable_builtin_templates = true
 enable_community_templates = false
+
+[theme.templates.user.neovim]
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/neovim.lua"
+output_path = "$XDG_CACHE_HOME/noctalia/neovim.lua"
+
+[idle]
+behavior_order = ["lock", "screen-off", "lock-and-suspend"]
+pre_action_fade_seconds = 2.0
+
+[idle.behavior.lock]
+action = "lock"
+enabled = true
+timeout = 600.0
+
+[idle.behavior.screen-off]
+action = "screen_off"
+enabled = true
+timeout = 660.0
+
+[idle.behavior.lock-and-suspend]
+action = "lock_and_suspend"
+enabled = true
+timeout = 1800.0
 
 [bar.default]
 enabled = true
@@ -164,6 +188,9 @@ monitors = []
 
 [audio]
 enable_overdrive = false
+
+[brightness]
+enable_ddcutil = true
 
 [nightlight]
 enabled = true

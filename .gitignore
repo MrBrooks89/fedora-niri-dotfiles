@@ -6,3 +6,6 @@
 secrets/
 *.key
 *.pem
+niri/noctalia.kdl
+kitty/themes/noctalia.conf
+btop/themes/noctalia.theme

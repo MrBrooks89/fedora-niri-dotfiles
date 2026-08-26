@@ -21,6 +21,7 @@ set -Eeuo pipefail
 #   ├── kitty/
 #   ├── niri/
 #   ├── nvim/
+#   ├── btop/
 #   ├── noctalia/              # optional
 #   ├── codex/skills/fedora-niri/
 #   └── satty/                 # optional
@@ -31,6 +32,7 @@ set -Eeuo pipefail
 #   ~/.config/kitty
 #   ~/.config/niri
 #   ~/.config/nvim
+#   ~/.config/btop
 #   ~/.config/noctalia
 #   ~/.codex/skills/fedora-niri
 #   ~/.config/satty
@@ -240,8 +242,12 @@ sudo dnf -y install \
     xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-kde \
     xdg-user-dirs \
     polkit \
-    grim slurp wl-clipboard \
+    grim slurp wl-clipboard ddcutil i2c-tools \
     libreoffice
+
+echo "==> Enabling DDC/CI access for external monitor brightness controls"
+echo i2c-dev | sudo tee /etc/modules-load.d/i2c-dev.conf >/dev/null
+sudo modprobe i2c-dev
 
 echo "==> Installing Teams for Linux from its official repository"
 teams_signing_key="$(mktemp --suffix=-teams-for-linux.asc)"
@@ -527,6 +533,7 @@ backup_and_link "$DOTFILES_DIR/starship.toml" "$HOME/.config/starship.toml"
 backup_and_link "$DOTFILES_DIR/kitty"         "$HOME/.config/kitty"
 backup_and_link "$DOTFILES_DIR/niri"          "$HOME/.config/niri"
 backup_and_link "$DOTFILES_DIR/nvim"          "$HOME/.config/nvim"
+backup_and_link "$DOTFILES_DIR/btop"          "$HOME/.config/btop"
 backup_and_link "$DOTFILES_DIR/noctalia"      "$HOME/.config/noctalia"
 backup_and_link "$DOTFILES_DIR/satty"         "$HOME/.config/satty"
 backup_and_link "$DOTFILES_DIR/codex/skills/fedora-niri" "$HOME/.codex/skills/fedora-niri"
