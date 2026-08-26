@@ -31,7 +31,7 @@ mode = "dark"
 pure_black_dark = false
 
 [theme.templates]
-builtin_ids = ["niri", "kitty", "btop", "gtk3", "gtk4"]
+builtin_ids = ["niri", "kitty", "btop", "gtk3", "gtk4", "Qt", "Starship"]
 enable_builtin_templates = true
 enable_community_templates = false
 
@@ -65,20 +65,34 @@ auto_hide = false
 smart_auto_hide = false
 reserve_space = true
 layer = "top"
-thickness = 44
+thickness = 34
 background_opacity = 0.0
 border = "outline"
-border_width = 1.0
+border_width = 0.0
+shadow = true
 radius = 12
+contact_shadow = false
+panel_overlap = 1
 concave_edge_corners = true
-padding = 2
+margin_ends = 100
+margin_edge = 0
+margin_opposite_edge = 0
+padding = 14
 widget_spacing = 6
+hover_highlit = true
 scale = 1.0
+font_scale = 1.0
+font_weight = 500
+font_family = "JetBrainsMono Nerd Font"
+
+# Capsule Settings
 capsule = true
 capsule_fill = "surface_variant"
-capsule_foreground = "on_surface"
-capsule_padding = 2.0
-capsule_opacity = 1.0
+capsule_thickness = 0.76
+capsule_radius = 8.0
+capsule_opacity = 0.8
+capsule_border = "outline"
+
 start = ["cpu", "media"]
 center = ["workspaces"]
 end = ["tray", "codexbar", "volume", "network", "battery", "clock", "control-center"]

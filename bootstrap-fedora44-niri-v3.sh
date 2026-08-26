@@ -23,6 +23,9 @@ set -Eeuo pipefail
 #   ├── nvim/
 #   ├── btop/
 #   ├── noctalia/              # optional
+#   ├── noctalia-greeter/
+#   ├── install-noctalia-greeter.sh
+#   ├── configure-noctalia-greeter.sh
 #   ├── codex/skills/fedora-niri/
 #   └── satty/                 # optional
 #
@@ -264,10 +267,6 @@ sudo dnf -y install teams-for-linux
 
 rm -f "$teams_signing_key"
 trap - EXIT
-
-echo "==> Installing GDM + minimal GNOME fallback/settings desktop"
-sudo dnf -y install \
-    gdm gnome-shell gnome-session gnome-control-center
 
 if [[ "$CONFIGURE_GITHUB" -eq 1 ]]; then
     echo "==> Configuring Git identity and GitHub CLI"
@@ -686,9 +685,13 @@ if [[ "$CONFIGURE_NETWORK" -eq 1 ]]; then
     fi
 fi
 
-echo "==> Enabling GDM and graphical boot"
+echo "==> Installing and configuring Noctalia Greeter"
+"$DOTFILES_DIR/install-noctalia-greeter.sh"
+
+echo "==> Enabling greetd and graphical boot"
 sudo systemctl set-default graphical.target
-sudo systemctl enable gdm
+sudo systemctl disable gdm 2>/dev/null || true
+sudo systemctl enable greetd
 
 echo
 echo "============================================================"
@@ -705,7 +708,7 @@ echo "  JetBrains Mono"
 echo "  NetworkManager Wi-Fi support"
 echo "  Intel iwlwifi firmware (iwlwifi-mvm-firmware)"
 echo "  Intel iwlwifi driver reload when Intel wireless is detected"
-echo "  GDM + minimal GNOME fallback"
+echo "  greetd + Noctalia Greeter"
 echo "  PipeWire/WirePlumber + XDG portals"
 echo
 echo "Important:"

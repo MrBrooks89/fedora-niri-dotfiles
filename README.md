@@ -8,17 +8,17 @@ Primary desktop stack:
 Fedora 44 Minimal
         │
         ▼
-       GDM
+      greetd
         │
-        ├──────────────┐
-        ▼              ▼
-      niri           GNOME
-        │           fallback /
-        ▼           settings
+        ▼
+Noctalia Greeter
+        │
+        ▼
+      niri
+        │
+        ▼
     Noctalia
 ```
-
-GNOME is kept as a fallback session for graphical GNOME/GTK settings. niri + Noctalia is the normal desktop.
 
 ## Repository layout
 
@@ -37,11 +37,15 @@ fedora-niri-dotfiles/
 ├── noctalia/
 │   ├── config.toml
 │   └── plugins/command-center/
+├── noctalia-greeter/
+│   └── greeter.toml
 ├── satty/
 ├── .zshrc
 ├── starship.toml
 ├── .gitignore
 ├── README.md
+├── install-noctalia-greeter.sh
+├── configure-noctalia-greeter.sh
 └── bootstrap-fedora44-niri-v3.sh
 ```
 
@@ -230,13 +234,45 @@ xdg-desktop-portal-gtk
 xdg-desktop-portal-kde
 ```
 
-GNOME fallback/settings environment:
+Login stack:
 
 ```text
-gdm
-gnome-shell
-gnome-session
-gnome-control-center
+greetd
+Noctalia Greeter (pinned source build)
+```
+
+### Noctalia Greeter
+
+The bootstrap builds the official Noctalia Greeter revision pinned in
+`install-noctalia-greeter.sh`, installs its binaries under `/usr/local`, and
+configures greetd to launch Niri. Stable appearance, authentication, session,
+and user defaults live in `noctalia-greeter/greeter.toml`. Noctalia's
+`greeter-sync` command owns mutable theme, wallpaper, and output state in
+`/var/lib/noctalia-greeter/sync.toml`.
+
+To reinstall or update the pinned build:
+
+```bash
+./install-noctalia-greeter.sh
+noctalia msg greeter-sync
+systemctl is-enabled greetd
+systemctl status display-manager --no-pager
+```
+
+greetd and Noctalia Greeter are the sole login stack. GDM, GNOME Shell, GNOME
+Session, Control Center, and the remaining GNOME desktop services were removed
+after login and Niri startup passed a real reboot test. GNOME-named runtime
+libraries, settings schemas, keyring, and PAM integration may remain when other
+applications depend on them; they are not a GNOME desktop fallback.
+
+If login recovery is needed, switch to a TTY and inspect greetd before changing
+its configuration:
+
+```bash
+systemctl status greetd --no-pager
+journalctl -b -u greetd --no-pager
+sudo ./configure-noctalia-greeter.sh
+sudo systemctl enable greetd
 ```
 
 ---
@@ -636,7 +672,7 @@ sudo reboot
 After reboot:
 
 ```text
-GDM
+Noctalia Greeter
  ↓
 niri
  ↓

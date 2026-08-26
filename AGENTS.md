@@ -1,7 +1,7 @@
 # Fedora Niri Dotfiles
 
 This repository provisions Mr. Brooks' Fedora 44 workstation. Niri and
-Noctalia v5 are the primary desktop; GNOME is only a fallback session.
+Noctalia v5 are the desktop, with greetd and Noctalia Greeter handling login.
 
 ## Configuration ownership
 
@@ -12,6 +12,8 @@ Noctalia v5 are the primary desktop; GNOME is only a fallback session.
 - `.zshrc` and `starship.toml` are linked into the home configuration.
 - `bootstrap-fedora44-niri-v3.sh` installs packages and creates those links.
 - `codex/skills/fedora-niri/` is linked to `~/.codex/skills/fedora-niri`.
+- `noctalia-greeter/greeter.toml` is installed into the protected greeter state
+  directory by `configure-noctalia-greeter.sh`; it is not symlinked.
 
 Edit the tracked source files, not the linked destinations, unless the user
 explicitly asks for a live-only experiment. Preserve unrelated user changes.
@@ -44,6 +46,16 @@ explicitly asks for a live-only experiment. Preserve unrelated user changes.
   shell configuration but does not refresh a loaded plugin manifest.
 - Keep machine secrets and Codex authentication out of Git. Never add
   `~/.codex/auth.json`, `.env` files, API keys, or tokens.
+- Build Noctalia Greeter from the revision pinned in
+  `install-noctalia-greeter.sh`. Preview greeter changes inside the active Niri
+  session before changing the display-manager service.
+- greetd and Noctalia Greeter are the sole login stack; GDM and the GNOME
+  desktop/session packages have been removed after a successful reboot test.
+  Do not add them back as an implicit fallback. GNOME-named runtime libraries,
+  schemas, keyring, and PAM integration may remain when Niri applications depend
+  on them.
+- Never replace or restart the active display manager from inside the graphical
+  session. Diagnose greetd from a TTY with `systemctl status` and `journalctl`.
 - Do not execute the full bootstrap merely to validate an edit; it performs
   package, service, shell, and desktop changes.
 
@@ -53,6 +65,8 @@ Run checks relevant to the files changed:
 
 ```bash
 bash -n bootstrap-fedora44-niri-v3.sh
+bash -n install-noctalia-greeter.sh
+bash -n configure-noctalia-greeter.sh
 bash -n noctalia/plugins/command-center/dispatch-action.sh
 bash -n noctalia/plugins/command-center/capture-tools.sh
 bash -n noctalia/plugins/command-center/list-applications.sh

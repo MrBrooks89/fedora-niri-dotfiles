@@ -21,6 +21,7 @@ configuration:
 | Neovim | `nvim/` | `~/.config/nvim/` |
 | btop | `btop/` | `~/.config/btop/` |
 | Shell | `.zshrc`, `starship.toml` | `~/.zshrc`, `~/.config/starship.toml` |
+| Greeter | `noctalia-greeter/greeter.toml` | `/var/lib/noctalia-greeter/greeter.toml` (installed, not linked) |
 
 Read the repository's `AGENTS.md` before changing it. Inspect Git status first
 and preserve unrelated work. Do not edit `/usr/share/omarchy`; Omarchy is useful
@@ -42,6 +43,16 @@ one of its behaviors.
 
 ## Desktop architecture
 
+- greetd launches the pinned Noctalia Greeter build, which starts the Niri
+  session after authentication. Preview greeter changes inside Niri first,
+  then stage display-manager changes for the next boot. greetd is now the sole
+  display manager; GDM and the GNOME desktop/session packages were removed after
+  a successful reboot test. Do not restore them as an implicit fallback.
+- Retain GNOME-named runtime libraries, schemas, keyring, and PAM integration
+  when other Niri applications depend on them. Their presence does not mean the
+  GNOME desktop is installed.
+- Never replace or restart the active display manager from inside the graphical
+  session. Diagnose greetd from a TTY with `systemctl status` and `journalctl`.
 - `Mod+D` opens Noctalia's standard application launcher.
 - `Mod+Space` currently opens the experimental native panel
   `mrbrooks/command-center:panel`, tracked under
@@ -96,6 +107,8 @@ Validate only what changed:
 
 ```bash
 bash -n ~/Documents/.dotfiles/bootstrap-fedora44-niri-v3.sh
+bash -n ~/Documents/.dotfiles/install-noctalia-greeter.sh
+bash -n ~/Documents/.dotfiles/configure-noctalia-greeter.sh
 niri validate -c ~/Documents/.dotfiles/niri/config.kdl
 noctalia config validate ~/Documents/.dotfiles/noctalia/config.toml
 bash -n ~/Documents/.dotfiles/noctalia/plugins/command-center/dispatch-action.sh
