@@ -47,6 +47,7 @@ WITH_SATTY_COPR=0
 WITH_NERD_FONT=0
 WITH_PROTONUP_RS=0
 WITH_STEAM=0
+WITH_CODEX=0
 CONFIGURE_NETWORK=0
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -70,6 +71,7 @@ Options:
   --with-containerlab      Install containerlab and add current user to clab_admins
   --with-protonup-rs       Install Protonup-rs into ~/.local/bin
   --with-steam             Install Steam
+  --with-codex             Install Codex CLI and CodexBar usage helper
   --configure-network      Configure 192.168.4.112/24, gateway/DNS 192.168.4.1
   --all                    Enable all optional software
   -h, --help               Show this help
@@ -108,6 +110,7 @@ while [[ $# -gt 0 ]]; do
         --with-nerd-font)    WITH_NERD_FONT=1 ;;
         --with-protonup-rs) WITH_PROTONUP_RS=1 ;;
         --with-steam)       WITH_STEAM=1 ;;
+        --with-codex)       WITH_CODEX=1 ;;
         --configure-network) CONFIGURE_NETWORK=1 ;;
         --all)
             WITH_DOCKER=1
@@ -116,6 +119,7 @@ while [[ $# -gt 0 ]]; do
             WITH_NERD_FONT=1
             WITH_PROTONUP_RS=1
             WITH_STEAM=1
+            WITH_CODEX=1
             CONFIGURE_NETWORK=1
             ;;
         -h|--help)
@@ -317,6 +321,60 @@ if [[ "$WITH_PROTONUP_RS" -eq 1 ]]; then
     echo "    Installed: $HOME/.local/bin/protonup-rs"
 else
     echo "NOTE: ProtonUp-rs not installed. Use --with-protonup-rs if needed."
+fi
+
+if [[ "$WITH_CODEX" -eq 1 ]]; then
+    echo "==> Installing OpenAI Codex CLI"
+    sudo dnf -y install nodejs npm
+    npm install --global --prefix "$HOME/.local" @openai/codex
+
+    echo "==> Installing CodexBar CLI for the Noctalia usage widget"
+
+    case "$(uname -m)" in
+        x86_64)  CODEXBAR_ARCH="x86_64" ;;
+        aarch64) CODEXBAR_ARCH="aarch64" ;;
+        *)
+            echo "ERROR: Unsupported architecture for CodexBar: $(uname -m)" >&2
+            exit 1
+            ;;
+    esac
+
+    CODEXBAR_RELEASE_JSON="$(curl -fsSL \
+        https://api.github.com/repos/steipete/CodexBar/releases/latest)"
+    CODEXBAR_TAG="$(jq -r '.tag_name' <<<"$CODEXBAR_RELEASE_JSON")"
+    CODEXBAR_ASSET="CodexBarCLI-${CODEXBAR_TAG}-linux-${CODEXBAR_ARCH}.tar.gz"
+    CODEXBAR_URL="$(jq -r --arg name "$CODEXBAR_ASSET" \
+        '.assets[] | select(.name == $name) | .browser_download_url' \
+        <<<"$CODEXBAR_RELEASE_JSON")"
+    CODEXBAR_SHA_URL="$(jq -r --arg name "${CODEXBAR_ASSET}.sha256" \
+        '.assets[] | select(.name == $name) | .browser_download_url' \
+        <<<"$CODEXBAR_RELEASE_JSON")"
+
+    if [[ -z "$CODEXBAR_URL" || -z "$CODEXBAR_SHA_URL" ]]; then
+        echo "ERROR: Could not find the CodexBar Linux release assets." >&2
+        exit 1
+    fi
+
+    CODEXBAR_TMP="$(mktemp -d)"
+    curl -fL "$CODEXBAR_URL" -o "$CODEXBAR_TMP/$CODEXBAR_ASSET"
+    curl -fL "$CODEXBAR_SHA_URL" -o "$CODEXBAR_TMP/$CODEXBAR_ASSET.sha256"
+    (
+        cd "$CODEXBAR_TMP"
+        sha256sum -c "$CODEXBAR_ASSET.sha256"
+        tar -xzf "$CODEXBAR_ASSET"
+    )
+    CODEXBAR_BIN="$(find "$CODEXBAR_TMP" -type f -name codexbar -print -quit)"
+    [[ -n "$CODEXBAR_BIN" ]] || { echo "ERROR: codexbar binary missing from archive." >&2; exit 1; }
+    install -m 755 "$CODEXBAR_BIN" "$HOME/.local/bin/codexbar"
+    rm -rf -- "$CODEXBAR_TMP"
+
+    "$HOME/.local/bin/codexbar" config enable --provider codex
+
+    echo "    Codex and CodexBar are installed. Run 'codex' once to sign in."
+    echo "    Install CodexBar Meter from Noctalia Settings -> Plugins, then"
+    echo "    add 'salemsayed/codexbar-meter:bar' to the desired bar section."
+else
+    echo "NOTE: Codex tooling not installed. Use --with-codex if wanted."
 fi
 
 echo "==> Setting Zsh as login shell"

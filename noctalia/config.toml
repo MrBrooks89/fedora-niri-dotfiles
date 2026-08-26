@@ -1,0 +1,233 @@
+# Noctalia v5 configuration translated from ~/Downloads/noctalia.nix.
+# The source targets Noctalia Shell v4; this uses v5 names and plugin IDs.
+
+[shell]
+lang = "en"
+font_family = "JetBrainsMono Nerd Font"
+time_format = "12h"
+corner_radius_scale = 0.5
+clipboard_enabled = false
+
+[shell.animation]
+enabled = true
+speed = 200
+
+[shell.launcher]
+sort_by_usage = true
+pinned = []
+
+[shell.panel]
+launcher_placement = "floating"
+launcher_position = "center"
+control_center_placement = "attached"
+open_near_click_control_center = true
+wallpaper_placement = "attached"
+open_near_click_wallpaper = true
+
+[theme]
+source = "custom"
+custom_palette = "DraculaMrBrooks"
+mode = "dark"
+pure_black_dark = false
+
+[theme.templates]
+enable_builtin_templates = false
+enable_community_templates = false
+
+[bar.default]
+enabled = true
+position = "top"
+auto_hide = false
+smart_auto_hide = false
+reserve_space = true
+layer = "top"
+thickness = 38
+background_opacity = 0.0
+border = "outline"
+border_width = 1.0
+radius = 12
+concave_edge_corners = true
+padding = 2
+widget_spacing = 6
+scale = 1.0
+font_scale = 1.0
+capsule = true
+capsule_fill = "surface_variant"
+capsule_foreground = "on_surface"
+capsule_padding = 2.0
+capsule_opacity = 1.0
+start = ["cpu", "media"]
+center = ["workspaces"]
+end = ["tray", "screen-recorder", "codexbar", "volume", "network", "battery", "clock", "control-center"]
+
+[widget.cpu]
+type = "sysmon"
+stat = "cpu_usage"
+
+[widget.media]
+type = "media"
+
+[widget.workspaces]
+type = "workspaces"
+
+[widget.tray]
+type = "tray"
+
+[widget.screen-recorder]
+type = "noctalia/screen_recorder:recorder"
+
+[widget.codexbar]
+type = "salemsayed/codexbar-meter:bar"
+
+[widget.volume]
+type = "volume"
+
+[widget.network]
+type = "network"
+
+[widget.battery]
+type = "battery"
+
+[widget.clock]
+type = "clock"
+
+[widget.control-center]
+type = "control-center"
+
+[control_center]
+show_shortcut_labels = true
+show_session_button = true
+
+[[control_center.shortcuts]]
+type = "wifi"
+[[control_center.shortcuts]]
+type = "bluetooth"
+[[control_center.shortcuts]]
+type = "screen_recorder"
+[[control_center.shortcuts]]
+type = "wallpaper"
+[[control_center.shortcuts]]
+type = "notification"
+[[control_center.shortcuts]]
+type = "nightlight"
+
+[control_center.calendar]
+show_events_card = true
+show_week_numbers = false
+
+[weather]
+enabled = true
+unit = "fahrenheit"
+
+[location]
+auto_locate = false
+address = "Longview, USA"
+custom_schedule = true
+sunrise = "08:00"
+sunset = "19:00"
+
+[calendar]
+enabled = true
+
+[wallpaper]
+enabled = true
+directory = "/home/mrbrooks/Pictures/Wallpapers"
+fill_mode = "crop"
+fill_color = "#000000"
+transition = ["fade", "disc", "stripes", "wipe", "pixelate", "honeycomb"]
+transition_duration = 1500
+edge_smoothness = 0.05
+transition_on_startup = true
+per_monitor_directories = false
+
+[wallpaper.automation]
+enabled = true
+interval_seconds = 300
+order = "random"
+recursive = false
+
+[backdrop]
+enabled = false
+blur_intensity = 0.4
+tint_intensity = 0.6
+
+[notification]
+enable_daemon = true
+position = "top_right"
+layer = "overlay"
+monitors = []
+
+[osd]
+enabled = true
+position = "right"
+position_vertical = "top"
+monitors = []
+
+[audio]
+enable_overdrive = false
+
+[nightlight]
+enabled = true
+force = false
+temperature_day = 6500
+temperature_night = 4000
+
+[system.monitor]
+enabled = true
+cpu_usage_activity_threshold = 80
+cpu_usage_critical_threshold = 90
+cpu_temp_activity_threshold = 80
+cpu_temp_critical_threshold = 90
+gpu_usage_activity_threshold = 80
+gpu_usage_critical_threshold = 90
+gpu_temp_activity_threshold = 80
+gpu_temp_critical_threshold = 90
+ram_pct_activity_threshold = 80
+ram_pct_critical_threshold = 90
+swap_pct_activity_threshold = 80
+swap_pct_critical_threshold = 90
+disk_used_pct_activity_threshold = 80
+disk_used_pct_critical_threshold = 90
+disk_free_pct_activity_threshold = 20
+disk_free_pct_critical_threshold = 10
+
+[battery]
+warning_threshold = 20
+
+[dock]
+enabled = false
+position = "bottom"
+active_monitor_only = false
+background_opacity = 0.0
+auto_hide = true
+magnification = false
+
+[plugins]
+enabled = ["noctalia/screen_recorder", "salemsayed/codexbar-meter"]
+auto_update = "all"
+
+[[plugins.source]]
+name = "official"
+kind = "git"
+location = "https://github.com/noctalia-dev/official-plugins"
+enabled = true
+
+[[plugins.source]]
+name = "community"
+kind = "git"
+location = "https://github.com/noctalia-dev/community-plugins"
+enabled = true
+
+[plugin_settings."noctalia/screen_recorder"]
+directory = "/home/mrbrooks/Videos/ScreenRecordings"
+frame_rate = 60
+audio_codec = "aac"
+video_codec = "h264"
+video_source = "portal"
+audio_source = "default_output"
+show_cursor = true
+
+[plugin_settings."salemsayed/codexbar-meter"]
+codexbarPath = "codexbar"
+refreshIntervalSec = 60
+barProviderLimit = 1

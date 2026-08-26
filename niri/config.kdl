@@ -250,6 +250,7 @@ binds {
 
     // Suggested binds for running programs: terminal, app launcher, screen locker.
     Mod+Return hotkey-overlay-title="Open a Terminal: kitty" { spawn "kitty"; }
+    Mod+A hotkey-overlay-title="Open OpenAI Codex" { spawn-sh "kitty --class org.openai.codex --directory \"$HOME/Work\" codex"; }
     Mod+D hotkey-overlay-title="Application Launcher: Noctalia" { spawn-sh "noctalia msg panel-toggle launcher"; }
     Mod+L hotkey-overlay-title="Lock the Screen: Noctalia Lockscreen" { spawn-sh "noctalia msg session lock"; }
     Mod+E hotkey-overlay-title="File Explorer" {spawn "dolphin"; }

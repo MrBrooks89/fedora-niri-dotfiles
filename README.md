@@ -463,6 +463,33 @@ Enables the rpmfusion Nonfree repository and installs steam
 ./bootstrap-fedora44-niri-v3.sh --with-steam
 ```
 
+## OpenAI Codex + usage widget
+
+Install the Codex CLI and the CodexBar usage helper:
+
+```bash
+./bootstrap-fedora44-niri-v3.sh --with-codex
+```
+
+Then run `codex` once and sign in. `Mod+A` opens Codex in Kitty, starting in
+`~/Work`. You can inspect usage manually with:
+
+```bash
+codexbar usage --format json --json-only
+```
+
+The tracked `noctalia/config.toml` declares the community plugin source,
+enables CodexBar Meter, and places it on the right side of the bar. After the
+bootstrap links that configuration, Noctalia should fetch and activate it.
+If the plugin has not yet been materialized, finish it from the UI:
+
+1. Open **Noctalia Settings → Plugins** and install/enable **CodexBar Meter**.
+2. Open **Bar**, choose the desired section, and add
+   `salemsayed/codexbar-meter:bar`.
+
+The widget opens its usage panel on left-click and refreshes on right-click.
+Its default refresh interval is 60 seconds.
+
 ## Docker + containerlab
 
 Docker:
