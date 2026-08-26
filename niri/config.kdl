@@ -262,7 +262,8 @@ binds {
     Mod+Return hotkey-overlay-title="Open a Terminal: kitty" { spawn "kitty"; }
     Mod+A hotkey-overlay-title="Open OpenAI Codex" { spawn-sh "kitty --class org.openai.codex --directory \"$HOME/Work\" codex"; }
     Mod+Space hotkey-overlay-title="Command Center: Noctalia" { spawn "noctalia" "msg" "panel-toggle" "mrbrooks/command-center:panel"; }
-    Mod+D hotkey-overlay-title="Application Launcher: Noctalia" { spawn "noctalia" "msg" "panel-toggle" "launcher"; }
+    Mod+D hotkey-overlay-title="Calculator: Noctalia" { spawn "noctalia" "msg" "panel-toggle" "launcher" "/calc"; }
+    Mod+Shift+D hotkey-overlay-title="Emoji Picker: Noctalia" { spawn "noctalia" "msg" "panel-toggle" "launcher" "/emo"; }
     Mod+Ctrl+Shift+Space hotkey-overlay-title="Theme Settings: Noctalia" { spawn "noctalia" "msg" "settings-open" "theme"; }
     Mod+Ctrl+V hotkey-overlay-title="Clipboard History: Noctalia" { spawn "noctalia" "msg" "panel-toggle" "clipboard"; }
     Mod+L hotkey-overlay-title="Lock the Screen: Noctalia Lockscreen" { spawn-sh "noctalia msg session lock"; }

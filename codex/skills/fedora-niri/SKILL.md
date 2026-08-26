@@ -59,7 +59,8 @@ one of its behaviors.
   the user's existing ChatGPT login in an isolated temporary Git worktree. It
   may prepare a PR but must not auto-merge, run the bootstrap, or mutate the live
   workstation.
-- `Mod+D` opens Noctalia's standard application launcher.
+- `Mod+D` opens Noctalia's calculator provider; `Mod+Shift+D` opens its emoji
+  provider.
 - `Mod+Space` currently opens the experimental native panel
   `mrbrooks/command-center:panel`, tracked under
   `noctalia/plugins/command-center/`. Keep its idle root at six categories,

@@ -32,9 +32,10 @@ explicitly asks for a live-only experiment. Preserve unrelated user changes.
   Edit sources under `noctalia/templates/`; generated theme files listed
   in `.gitignore` are runtime artifacts and must not be committed.
 - `Mod+Space` opens the experimental native Noctalia command-center panel from
-  `noctalia/plugins/command-center/`; `Mod+D` remains Noctalia's standard
-  application launcher. The panel must preserve the six-category root, nested
-  browsing, root application/action search, and safe application launching.
+  `noctalia/plugins/command-center/`; `Mod+D` opens Noctalia's calculator
+  provider and `Mod+Shift+D` opens its emoji provider. The panel must preserve
+  the six-category root, nested browsing, root application/action search, and
+  safe application launching.
 - Preserve full keyboard operation in the command center: typing searches,
   Up/Down changes the highlighted row, Right/Enter activates it, Alt+Left goes
   back, and Escape closes the panel. Keep the selected row visibly distinct and

@@ -429,8 +429,11 @@ Mod+P { spawn-sh "noctalia msg panel-toggle session"; }
 
 `Mod+Space` opens the custom native Noctalia panel at
 `noctalia/plugins/command-center/`. Its root contains six categories and its
-search covers installed desktop applications plus leaf actions. `Mod+D` remains
-the standard Noctalia application launcher.
+search covers installed desktop applications plus leaf actions. The remaining
+launcher shortcuts open Noctalia's focused utility providers directly:
+
+- `Mod+D` opens the calculator (`/calc`).
+- `Mod+Shift+D` opens the emoji picker (`/emo`).
 
 Keyboard controls:
 
