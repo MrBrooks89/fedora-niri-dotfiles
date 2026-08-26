@@ -111,7 +111,10 @@ power_menu() {
     esac
 }
 
-choice=$(menu "Command Center" \
+if [[ $# -gt 0 ]]; then
+    choice="$1"
+else
+    choice=$(menu "Command Center" \
     "Applications" \
     "System" \
     "Capture" \
@@ -150,6 +153,7 @@ choice=$(menu "Command Center" \
     "Power › Log Out" \
     "Power › Restart" \
     "Power › Shut Down") || exit 0
+fi
 
 case "$choice" in
     "Applications") rofi -show drun ;;

@@ -7,7 +7,8 @@ Noctalia v5 are the primary desktop; GNOME is only a fallback session.
 
 - `niri/` is linked to `~/.config/niri`.
 - `noctalia/` is linked to `~/.config/noctalia`.
-- `kitty/` and `nvim/` are linked to their matching `~/.config` directories.
+- `kitty/`, `nvim/`, `rofi/`, and `btop/` are linked to their matching
+  `~/.config` directories.
 - `.zshrc` and `starship.toml` are linked into the home configuration.
 - `bootstrap-fedora44-niri-v3.sh` installs packages and creates those links.
 - `codex/skills/fedora-niri/` is linked to `~/.codex/skills/fedora-niri`.
@@ -23,6 +24,18 @@ explicitly asks for a live-only experiment. Preserve unrelated user changes.
   settings into these files.
 - Noctalia's tracked TOML is the declarative base. Remember that
   `~/.local/state/noctalia/settings.toml` contains GUI overrides and wins over it.
+- Noctalia renders coordinated themes for Niri, Kitty, btop, GTK, Neovim, and
+  Rofi. Edit sources under `noctalia/templates/`; generated theme files listed
+  in `.gitignore` are runtime artifacts and must not be committed.
+- `Mod+Space` is the Rofi unified command center; `Mod+D` remains Noctalia's
+  application launcher. Preserve the separate category, desktop-application,
+  and action providers so the idle root shows six categories while root search
+  still finds applications and actions.
+- Keep horizontal Rofi mode switching disabled in the unified command center.
+  Plain Left/Right must not cycle providers; search cursor movement remains on
+  `Ctrl+B` and `Ctrl+F`.
+- Keep screenshot, annotation, color-picker, OCR, copy/save/open, and recording
+  entry points consolidated through `rofi/capture-tools.sh` and the Capture menu.
 - Keep machine secrets and Codex authentication out of Git. Never add
   `~/.codex/auth.json`, `.env` files, API keys, or tokens.
 - Do not execute the full bootstrap merely to validate an edit; it performs
@@ -34,6 +47,11 @@ Run checks relevant to the files changed:
 
 ```bash
 bash -n bootstrap-fedora44-niri-v3.sh
+bash -n rofi/command-center.sh
+bash -n rofi/unified-command-center.sh
+bash -n rofi/command-center-categories-mode.sh
+bash -n rofi/command-center-mode.sh
+bash -n rofi/capture-tools.sh
 niri validate -c niri/config.kdl
 noctalia config validate noctalia/config.toml
 python3 -c 'import json; json.load(open("noctalia/palettes/DraculaMrBrooks.json"))'
@@ -43,4 +61,3 @@ git diff --check
 If a validator is unavailable, report that clearly and still run the remaining
 static checks. For bootstrap changes, also confirm `--help` parses without
 performing installation.
-
