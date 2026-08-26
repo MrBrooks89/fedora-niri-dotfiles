@@ -543,6 +543,34 @@ else
     echo "    $DOTFILES_DIR"
 fi
 
+echo "==> Seeding generated theme files for first login"
+mkdir -p \
+    "$DOTFILES_DIR/niri" \
+    "$DOTFILES_DIR/kitty/themes" \
+    "$DOTFILES_DIR/btop/themes"
+
+if [[ ! -e "$DOTFILES_DIR/niri/noctalia.kdl" ]]; then
+    cat > "$DOTFILES_DIR/niri/noctalia.kdl" <<'EOF'
+// Bootstrap fallback. Noctalia replaces this file when it applies templates.
+EOF
+fi
+
+if [[ ! -e "$DOTFILES_DIR/kitty/themes/noctalia.conf" ]]; then
+    cat > "$DOTFILES_DIR/kitty/themes/noctalia.conf" <<'EOF'
+# Bootstrap fallback. Noctalia replaces this file when it applies templates.
+foreground #f8f8f2
+background #282a36
+EOF
+fi
+
+if [[ ! -e "$DOTFILES_DIR/btop/themes/noctalia.theme" ]]; then
+    cat > "$DOTFILES_DIR/btop/themes/noctalia.theme" <<'EOF'
+# Bootstrap fallback. Noctalia replaces this file when it applies templates.
+theme[main_bg]="#282a36"
+theme[main_fg]="#f8f8f2"
+EOF
+fi
+
 echo "==> Linking dotfiles"
 
 backup_and_link "$DOTFILES_DIR/.zshrc"        "$HOME/.zshrc"
@@ -576,6 +604,9 @@ binds {
 }
 EOF
 fi
+
+echo "==> Validating linked Niri configuration"
+niri validate -c "$NIRI_CONFIG"
 
 SCREENSHOT="$HOME/.config/niri/screenshot.sh"
 

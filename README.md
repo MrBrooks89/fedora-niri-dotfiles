@@ -66,6 +66,11 @@ repo/codex/skills/fedora-niri
 
 Existing configs are backed up before links are created.
 
+Noctalia-generated Niri, Kitty, and btop theme outputs are intentionally ignored
+by Git. On a fresh clone, the bootstrap creates valid fallback files before it
+links the configurations. Noctalia replaces those fallbacks after it starts and
+applies the configured templates.
+
 ---
 
 ## Fresh install using this repository
