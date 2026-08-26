@@ -8,6 +8,14 @@ command -v gh >/dev/null || {
     echo "ERROR: Install GitHub CLI first: sudo dnf install gh" >&2
     exit 1
 }
+command -v codex >/dev/null || {
+    echo "ERROR: Install Codex first, then sign in with ChatGPT: codex login" >&2
+    exit 1
+}
+codex login status 2>&1 | grep -q '^Logged in using ChatGPT$' || {
+    echo "ERROR: Authenticate Codex with ChatGPT first: codex login" >&2
+    exit 1
+}
 gh auth status --hostname github.com >/dev/null 2>&1 || {
     echo "ERROR: Authenticate first: gh auth login --hostname github.com" >&2
     exit 1
@@ -15,6 +23,7 @@ gh auth status --hostname github.com >/dev/null 2>&1 || {
 
 mkdir -p "$unit_dir" "$HOME/.local/bin"
 ln -sfn "$script_dir/collect-incident.sh" "$HOME/.local/bin/diagnose-workstation"
+ln -sfn "$script_dir/run-local-codex.sh" "$HOME/.local/bin/diagnose-workstation-with-codex"
 ln -sfn "$script_dir/systemd/fedora-niri-diagnostics.service" \
     "$unit_dir/fedora-niri-diagnostics.service"
 ln -sfn "$script_dir/systemd/fedora-niri-diagnostics.timer" \

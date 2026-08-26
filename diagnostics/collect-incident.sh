@@ -15,8 +15,8 @@ usage() {
     cat <<'EOF'
 Usage: collect-incident.sh [--dry-run] [--force] [--since TIME]
 
-Collect bounded Fedora/Niri desktop diagnostics, sanitize them, and open a
-GitHub issue that triggers the Codex diagnosis workflow.
+Collect bounded Fedora/Niri desktop diagnostics, sanitize them, open a GitHub
+issue, and run the local Codex diagnosis workflow.
 
   --dry-run     Print the sanitized report; do not contact GitHub
   --force       Submit a snapshot even when no failure signal is detected
@@ -142,8 +142,14 @@ issue_url="$(gh issue create \
     --repo "$github_repo" \
     --title "[workstation-diagnostic] ${report_hash:0:12}" \
     --body-file "$work_dir/report.md")"
+issue_number="${issue_url##*/}"
 
 printf '%s\n' "$report_hash" > "$state_dir/last-submitted.sha256"
 printf '%s\n' "$current_epoch" > "$state_dir/last-submitted.epoch"
 rm -f "$state_dir/pending-report.md"
 echo "Created diagnostic issue: $issue_url"
+
+"$script_dir/run-local-codex.sh" \
+    --report "$work_dir/report.md" \
+    --issue "$issue_number" \
+    --hash "$report_hash"

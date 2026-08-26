@@ -81,8 +81,8 @@ Options:
   --with-protonup-rs       Install Protonup-rs into ~/.local/bin
   --with-steam             Install Steam
   --with-codex             Install Codex CLI and CodexBar usage helper
-  --with-auto-diagnostics  Enable sanitized crash reports and Codex PR proposals
-                           (requires --configure-github)
+  --with-auto-diagnostics  Enable local Codex crash diagnosis and PR proposals
+                           (requires --with-codex and --configure-github)
   --configure-github       Configure Git identity and authenticate GitHub CLI
   --configure-network      Configure 192.168.4.112/24, gateway/DNS 192.168.4.1
   --all                    Enable all optional software
@@ -152,6 +152,10 @@ done
 
 if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 && "$CONFIGURE_GITHUB" -ne 1 ]]; then
     echo "--with-auto-diagnostics requires --configure-github." >&2
+    exit 2
+fi
+if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 && "$WITH_CODEX" -ne 1 ]]; then
+    echo "--with-auto-diagnostics requires --with-codex." >&2
     exit 2
 fi
 
@@ -729,7 +733,7 @@ echo "  Intel iwlwifi driver reload when Intel wireless is detected"
 echo "  greetd + Noctalia Greeter"
 echo "  PipeWire/WirePlumber + XDG portals"
 if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 ]]; then
-    echo "  Sanitized workstation diagnostics + Codex PR workflow"
+    echo "  Sanitized workstation diagnostics + local Codex PR workflow"
 fi
 echo
 echo "Important:"

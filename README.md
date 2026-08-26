@@ -602,17 +602,20 @@ The optional diagnostic timer checks every 15 minutes for failed systemd units,
 relevant high-priority journal messages, and recent coredumps. Reports are
 bounded, sanitized locally, deduplicated, and submitted as GitHub issues titled
 `[workstation-diagnostic] ...`. A six-hour cooldown prevents repeated failures
-from flooding the repository. Only issues opened by the repository owner can
-trigger `.github/workflows/codex-diagnose.yml`.
+from flooding the repository.
 
-The GitHub workflow runs Codex in a workspace-write sandbox. It either comments
-with a diagnosis or pushes a dedicated fix branch and opens a PR. It never
+After opening an issue, the runner starts `codex exec` locally under the current
+user's existing ChatGPT login. Codex receives the sanitized report and works in
+an isolated temporary Git worktree with workspace-write sandboxing. If it finds
+a supported repository fix, the wrapper commits and pushes a dedicated branch
+and opens a PR. Otherwise, it comments its diagnosis on the issue. It never
 merges, runs the bootstrap, or modifies the live workstation.
 
-Repository setup requires an `OPENAI_API_KEY` GitHub Actions secret. Local setup
-requires a valid GitHub CLI login:
+No OpenAI API key or GitHub Actions secret is required. Local setup requires a
+ChatGPT-authenticated Codex CLI and a valid GitHub CLI login:
 
 ```bash
+codex login
 gh auth login --hostname github.com
 ./diagnostics/install.sh
 ```
@@ -621,6 +624,7 @@ For a fresh bootstrap, use:
 
 ```bash
 ./bootstrap-fedora44-niri-v3.sh \
+    --with-codex \
     --configure-github \
     --with-auto-diagnostics
 ```
@@ -638,6 +642,12 @@ Inspect or disable the timer:
 ```bash
 systemctl --user status fedora-niri-diagnostics.timer
 systemctl --user disable --now fedora-niri-diagnostics.timer
+```
+
+The local agent logs are available with:
+
+```bash
+journalctl --user -u fedora-niri-diagnostics.service
 ```
 
 The collector deliberately avoids environment dumps, command history,
