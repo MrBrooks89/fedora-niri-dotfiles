@@ -85,7 +85,7 @@ capsule_padding = 2.0
 capsule_opacity = 1.0
 start = ["cpu", "media"]
 center = ["workspaces"]
-end = ["tray", "screen-recorder", "codexbar", "volume", "network", "battery", "clock", "control-center"]
+end = ["tray", "codexbar", "volume", "network", "battery", "clock", "control-center"]
 
 [widget.cpu]
 type = "sysmon"
@@ -233,8 +233,14 @@ auto_hide = true
 magnification = false
 
 [plugins]
-enabled = ["noctalia/screen_recorder", "salemsayed/codexbar-meter"]
+enabled = ["noctalia/screen_recorder", "salemsayed/codexbar-meter", "mrbrooks/command-center"]
 auto_update = "all"
+
+[[plugins.source]]
+name = "local"
+kind = "path"
+location = "/home/mrbrooks/.config/noctalia/plugins"
+enabled = true
 
 [[plugins.source]]
 name = "official"

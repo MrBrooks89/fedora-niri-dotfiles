@@ -27,10 +27,14 @@ explicitly asks for a live-only experiment. Preserve unrelated user changes.
 - Noctalia renders coordinated themes for Niri, Kitty, btop, GTK, Neovim, and
   Rofi. Edit sources under `noctalia/templates/`; generated theme files listed
   in `.gitignore` are runtime artifacts and must not be committed.
-- `Mod+Space` is the Rofi unified command center; `Mod+D` remains Noctalia's
-  application launcher. Preserve the separate category, desktop-application,
-  and action providers so the idle root shows six categories while root search
-  still finds applications and actions.
+- `Mod+Space` opens the experimental native Noctalia command-center panel from
+  `noctalia/plugins/command-center/`; `Mod+D` remains Noctalia's standard
+  application launcher. The panel must preserve the six-category root, nested
+  browsing, root application/action search, and safe application launching.
+- Keep the complete Rofi command center in `rofi/` as the tested fallback until
+  the user explicitly approves removing it. Its separate category,
+  desktop-application, and action providers must remain intact during the
+  Noctalia-panel trial.
 - Keep horizontal Rofi mode switching disabled in the unified command center.
   Plain Left/Right must not cycle providers; search cursor movement remains on
   `Ctrl+B` and `Ctrl+F`.
@@ -52,6 +56,8 @@ bash -n rofi/unified-command-center.sh
 bash -n rofi/command-center-categories-mode.sh
 bash -n rofi/command-center-mode.sh
 bash -n rofi/capture-tools.sh
+bash -n noctalia/plugins/command-center/list-applications.sh
+noctalia plugins lint noctalia/plugins/command-center
 niri validate -c niri/config.kdl
 noctalia config validate noctalia/config.toml
 python3 -c 'import json; json.load(open("noctalia/palettes/DraculaMrBrooks.json"))'

@@ -1,0 +1,22 @@
+id = "mrbrooks/command-center"
+name = "Command Center"
+version = "0.1.0"
+plugin_api = 28
+author = "mrbrooks"
+license = "MIT"
+icon = "command"
+description = "A searchable, nested command center for applications and desktop actions."
+tags = ["panel", "launcher", "productivity"]
+dependencies = ["gio"]
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 720
+height = 590
+placement = "floating"
+position = "center"
+open_near_click = false
+dismiss_on_outside_click = true
+keyboard_focus = "exclusive"
+

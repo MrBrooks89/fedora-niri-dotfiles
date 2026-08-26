@@ -46,10 +46,13 @@ one of its behaviors.
 ## Desktop architecture
 
 - `Mod+D` opens Noctalia's standard application launcher.
-- `Mod+Space` runs `rofi/unified-command-center.sh`. Its combined provider order
-  is categories, desktop applications, then actions. Keep the idle root at six
-  visible category rows while allowing typed searches to match applications and
-  leaf actions.
+- `Mod+Space` currently opens the experimental native panel
+  `mrbrooks/command-center:panel`, tracked under
+  `noctalia/plugins/command-center/`. Keep its idle root at six categories,
+  nested browsing, and direct root search across applications and leaf actions.
+- Preserve `rofi/unified-command-center.sh` and its supporting scripts as the
+  tested fallback until the user explicitly approves removing Rofi. Its combined
+  provider order remains categories, desktop applications, then actions.
 - The Rofi category and action providers are separate scripts. Category
   selection calls `command-center.sh`; actions may execute directly through the
   same dispatcher. Do not collapse them into one provider, which exposes every
@@ -102,6 +105,8 @@ bash -n ~/Documents/.dotfiles/rofi/unified-command-center.sh
 bash -n ~/Documents/.dotfiles/rofi/command-center-categories-mode.sh
 bash -n ~/Documents/.dotfiles/rofi/command-center-mode.sh
 bash -n ~/Documents/.dotfiles/rofi/capture-tools.sh
+bash -n ~/Documents/.dotfiles/noctalia/plugins/command-center/list-applications.sh
+noctalia plugins lint ~/Documents/.dotfiles/noctalia/plugins/command-center
 git -C ~/Documents/.dotfiles diff --check
 ```
 

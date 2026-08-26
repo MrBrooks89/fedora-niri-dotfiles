@@ -89,7 +89,7 @@ tools_menu() {
         "File Manager") dolphin ;;
         "Edit Niri Config") kitty nvim "$HOME/.config/niri/config.kdl" ;;
         "Edit Noctalia Config") kitty nvim "$HOME/.config/noctalia/config.toml" ;;
-        "Fedora Updates") kitty --title "Fedora Updates" sudo dnf upgrade --refresh ;;
+        "Fedora Updates") kitty --hold --title "Fedora Updates" sudo dnf upgrade --refresh ;;
     esac
 }
 
@@ -188,7 +188,7 @@ case "$choice" in
     "Tools › File Manager") dolphin ;;
     "Tools › Edit Niri Config") kitty nvim "$HOME/.config/niri/config.kdl" ;;
     "Tools › Edit Noctalia Config") kitty nvim "$HOME/.config/noctalia/config.toml" ;;
-    "Tools › Fedora Updates") kitty --title "Fedora Updates" sudo dnf upgrade --refresh ;;
+    "Tools › Fedora Updates") kitty --hold --title "Fedora Updates" sudo dnf upgrade --refresh ;;
     "Power › Lock") noctalia msg session lock ;;
     "Power › Suspend") noctalia msg session suspend ;;
     "Power › Log Out") noctalia msg session logout ;;
