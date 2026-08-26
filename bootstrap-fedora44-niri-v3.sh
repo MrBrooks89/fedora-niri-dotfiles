@@ -22,6 +22,7 @@ set -Eeuo pipefail
 #   ├── niri/
 #   ├── nvim/
 #   ├── btop/
+#   ├── rofi/
 #   ├── noctalia/              # optional
 #   ├── codex/skills/fedora-niri/
 #   └── satty/                 # optional
@@ -33,6 +34,7 @@ set -Eeuo pipefail
 #   ~/.config/niri
 #   ~/.config/nvim
 #   ~/.config/btop
+#   ~/.config/rofi
 #   ~/.config/noctalia
 #   ~/.codex/skills/fedora-niri
 #   ~/.config/satty
@@ -237,7 +239,7 @@ fi
 
 echo "==> Installing niri/Noctalia desktop components"
 sudo dnf -y install \
-    niri noctalia kitty firefox dolphin \
+    niri noctalia kitty rofi firefox dolphin \
     pipewire wireplumber \
     xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-kde \
     xdg-user-dirs \
@@ -534,6 +536,7 @@ backup_and_link "$DOTFILES_DIR/kitty"         "$HOME/.config/kitty"
 backup_and_link "$DOTFILES_DIR/niri"          "$HOME/.config/niri"
 backup_and_link "$DOTFILES_DIR/nvim"          "$HOME/.config/nvim"
 backup_and_link "$DOTFILES_DIR/btop"          "$HOME/.config/btop"
+backup_and_link "$DOTFILES_DIR/rofi"          "$HOME/.config/rofi"
 backup_and_link "$DOTFILES_DIR/noctalia"      "$HOME/.config/noctalia"
 backup_and_link "$DOTFILES_DIR/satty"         "$HOME/.config/satty"
 backup_and_link "$DOTFILES_DIR/codex/skills/fedora-niri" "$HOME/.codex/skills/fedora-niri"

@@ -1,0 +1,14 @@
+configuration {
+    modi: "drun,run";
+    show-icons: true;
+    display-drun: "Applications";
+    drun-display-format: "{name}";
+    matching: "fuzzy";
+    sorting-method: "fzf";
+    sort: true;
+    terminal: "kitty";
+    font: "JetBrainsMono Nerd Font 14";
+    layer: "overlay";
+}
+
+@theme "theme.rasi"

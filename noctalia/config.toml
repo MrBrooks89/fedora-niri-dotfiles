@@ -39,6 +39,10 @@ enable_community_templates = false
 input_path = "$XDG_CONFIG_HOME/noctalia/templates/neovim.lua"
 output_path = "$XDG_CACHE_HOME/noctalia/neovim.lua"
 
+[theme.templates.user.rofi]
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/rofi.rasi"
+output_path = "$XDG_CONFIG_HOME/rofi/theme.rasi"
+
 [idle]
 behavior_order = ["lock", "screen-off", "lock-and-suspend"]
 pre_action_fade_seconds = 2.0
