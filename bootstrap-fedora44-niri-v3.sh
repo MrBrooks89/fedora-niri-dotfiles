@@ -50,6 +50,7 @@ WITH_NERD_FONT=0
 WITH_PROTONUP_RS=0
 WITH_STEAM=0
 WITH_CODEX=0
+CONFIGURE_GITHUB=0
 CONFIGURE_NETWORK=0
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -74,6 +75,7 @@ Options:
   --with-protonup-rs       Install Protonup-rs into ~/.local/bin
   --with-steam             Install Steam
   --with-codex             Install Codex CLI and CodexBar usage helper
+  --configure-github       Configure Git identity and authenticate GitHub CLI
   --configure-network      Configure 192.168.4.112/24, gateway/DNS 192.168.4.1
   --all                    Enable all optional software
   -h, --help               Show this help
@@ -113,6 +115,7 @@ while [[ $# -gt 0 ]]; do
         --with-protonup-rs) WITH_PROTONUP_RS=1 ;;
         --with-steam)       WITH_STEAM=1 ;;
         --with-codex)       WITH_CODEX=1 ;;
+        --configure-github) CONFIGURE_GITHUB=1 ;;
         --configure-network) CONFIGURE_NETWORK=1 ;;
         --all)
             WITH_DOCKER=1
@@ -122,6 +125,7 @@ while [[ $# -gt 0 ]]; do
             WITH_PROTONUP_RS=1
             WITH_STEAM=1
             WITH_CODEX=1
+            CONFIGURE_GITHUB=1
             CONFIGURE_NETWORK=1
             ;;
         -h|--help)
@@ -258,6 +262,42 @@ trap - EXIT
 echo "==> Installing GDM + minimal GNOME fallback/settings desktop"
 sudo dnf -y install \
     gdm gnome-shell gnome-session gnome-control-center
+
+if [[ "$CONFIGURE_GITHUB" -eq 1 ]]; then
+    echo "==> Configuring Git identity and GitHub CLI"
+
+    if [[ ! -t 0 ]]; then
+        echo "ERROR: --configure-github requires an interactive terminal." >&2
+        exit 1
+    fi
+
+    sudo dnf -y install gh
+
+    current_git_name="$(git config --global --get user.name || true)"
+    current_git_email="$(git config --global --get user.email || true)"
+
+    read -r -p "Git author name${current_git_name:+ [$current_git_name]}: " git_name
+    read -r -p "Git author email${current_git_email:+ [$current_git_email]}: " git_email
+
+    git_name="${git_name:-$current_git_name}"
+    git_email="${git_email:-$current_git_email}"
+
+    if [[ -z "$git_name" || -z "$git_email" ]]; then
+        echo "ERROR: Git author name and email cannot be empty." >&2
+        exit 1
+    fi
+
+    git config --global user.name "$git_name"
+    git config --global user.email "$git_email"
+
+    if ! gh auth status --hostname github.com >/dev/null 2>&1; then
+        gh auth login --hostname github.com --git-protocol ssh --web
+    else
+        echo "    GitHub CLI is already authenticated."
+    fi
+
+    gh auth setup-git
+fi
 
 echo "==> Installing Starship"
 mkdir -p "$HOME/.local/bin"
@@ -670,6 +710,9 @@ echo "  ls -l ~/.config/niri ~/.config/kitty ~/.config/nvim ~/.zshrc"
 echo "  niri validate"
 echo "  nmcli device status"
 echo "  command -v niri noctalia kitty dolphin teams-for-linux nvim eza starship"
+if [[ "$CONFIGURE_GITHUB" -eq 1 ]]; then
+    echo "  command -v gh && gh auth status --hostname github.com"
+fi
 echo "  fc-match 'JetBrains Mono'"
 echo "  gsettings get org.gnome.desktop.interface color-scheme"
 echo "  id"
