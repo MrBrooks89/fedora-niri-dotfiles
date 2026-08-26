@@ -224,6 +224,11 @@ match app-id="com.gabm.satty"
 open-floating true
 }
 
+window-rule {
+    match app-id="btop"
+    open-floating true
+}
+
 //window-rule {
 //    match app-id="kitty"
 //
@@ -247,6 +252,8 @@ binds {
     Mod+M hotkey-overlay-title="Open Music Player: Cider" {spawn-sh "appimage-run ~/Documents/cider-v3.1.8-linux-x64.AppImage";}
     // Open Teams for Linux in wayland
     Mod+T {spawn "/opt/teams-for-linux/teams-for-linux"; }
+    // Open btop in a floating terminal
+    Mod+Shift+T hotkey-overlay-title="Open System Monitor: btop" { spawn "kitty" "--class" "btop" "btop"; }
     // Open RingCentral
     Mod+R hotkey-overlay-title="Open RingCentral Phone App" {spawn "ringcentral-embeddable";}
 
