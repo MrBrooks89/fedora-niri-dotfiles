@@ -25,13 +25,18 @@ inputbar {
     padding: 12px;
     spacing: 10px;
     border-radius: 9px;
-    background-color: @background-alt;
-    text-color: @foreground;
+    background-color: @selected;
+    text-color: @selected-foreground;
     children: [prompt, entry];
 }
 
 prompt, entry {
-    text-color: @foreground;
+    background-color: transparent;
+    text-color: @selected-foreground;
+}
+
+prompt {
+    font: "JetBrainsMono Nerd Font Bold 14";
 }
 
 listview {
