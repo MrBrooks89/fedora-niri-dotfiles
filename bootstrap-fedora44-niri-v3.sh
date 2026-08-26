@@ -244,7 +244,7 @@ sudo dnf -y install \
     xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-kde \
     xdg-user-dirs \
     polkit \
-    grim slurp wl-clipboard ddcutil i2c-tools \
+    grim slurp satty wl-clipboard tesseract tesseract-langpack-eng ddcutil i2c-tools \
     libreoffice
 
 echo "==> Enabling DDC/CI access for external monitor brightness controls"

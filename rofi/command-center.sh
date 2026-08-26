@@ -34,16 +34,26 @@ system_menu() {
 capture_menu() {
     local choice
     choice=$(menu "Capture" \
-        "Screenshot Region" \
-        "Screenshot Focused Display" \
-        "Screenshot All Displays" \
-        "Screen Recorder") || return
+        "Region Screenshot" \
+        "Focused Window Screenshot" \
+        "Focused Output Screenshot" \
+        "All Outputs Screenshot" \
+        "Annotate Region" \
+        "Screen Recorder" \
+        "Color Picker" \
+        "OCR Region to Clipboard" \
+        "Open Screenshots Folder") || return
 
     case "$choice" in
-        "Screenshot Region") noctalia msg screenshot-region ;;
-        "Screenshot Focused Display") noctalia msg screenshot-fullscreen ;;
-        "Screenshot All Displays") noctalia msg screenshot-fullscreen all ;;
+        "Region Screenshot") "$HOME/.config/rofi/capture-tools.sh" screenshot region ;;
+        "Focused Window Screenshot") "$HOME/.config/rofi/capture-tools.sh" screenshot window ;;
+        "Focused Output Screenshot") "$HOME/.config/rofi/capture-tools.sh" screenshot output ;;
+        "All Outputs Screenshot") "$HOME/.config/rofi/capture-tools.sh" screenshot all ;;
+        "Annotate Region") "$HOME/.config/rofi/capture-tools.sh" screenshot region annotate ;;
         "Screen Recorder") noctalia msg plugin noctalia/screen_recorder:service all toggle ;;
+        "Color Picker") "$HOME/.config/rofi/capture-tools.sh" color ;;
+        "OCR Region to Clipboard") "$HOME/.config/rofi/capture-tools.sh" ocr ;;
+        "Open Screenshots Folder") "$HOME/.config/rofi/capture-tools.sh" open-folder ;;
     esac
 }
 
@@ -116,10 +126,15 @@ choice=$(menu "Command Center" \
     "System › Clipboard History" \
     "System › Toggle Caffeine" \
     "System › Toggle Do Not Disturb" \
-    "Capture › Screenshot Region" \
-    "Capture › Screenshot Focused Display" \
-    "Capture › Screenshot All Displays" \
+    "Capture › Region Screenshot" \
+    "Capture › Focused Window Screenshot" \
+    "Capture › Focused Output Screenshot" \
+    "Capture › All Outputs Screenshot" \
+    "Capture › Annotate Region" \
     "Capture › Screen Recorder" \
+    "Capture › Color Picker" \
+    "Capture › OCR Region to Clipboard" \
+    "Capture › Open Screenshots Folder" \
     "Appearance › Themes" \
     "Appearance › Wallpapers" \
     "Appearance › Toggle Light/Dark Mode" \
@@ -151,10 +166,15 @@ case "$choice" in
     "System › Clipboard History") noctalia msg panel-toggle clipboard ;;
     "System › Toggle Caffeine") noctalia msg caffeine-toggle ;;
     "System › Toggle Do Not Disturb") noctalia msg notification-dnd-toggle ;;
-    "Capture › Screenshot Region") noctalia msg screenshot-region ;;
-    "Capture › Screenshot Focused Display") noctalia msg screenshot-fullscreen ;;
-    "Capture › Screenshot All Displays") noctalia msg screenshot-fullscreen all ;;
+    "Capture › Region Screenshot") "$HOME/.config/rofi/capture-tools.sh" screenshot region ;;
+    "Capture › Focused Window Screenshot") "$HOME/.config/rofi/capture-tools.sh" screenshot window ;;
+    "Capture › Focused Output Screenshot") "$HOME/.config/rofi/capture-tools.sh" screenshot output ;;
+    "Capture › All Outputs Screenshot") "$HOME/.config/rofi/capture-tools.sh" screenshot all ;;
+    "Capture › Annotate Region") "$HOME/.config/rofi/capture-tools.sh" screenshot region annotate ;;
     "Capture › Screen Recorder") noctalia msg plugin noctalia/screen_recorder:service all toggle ;;
+    "Capture › Color Picker") "$HOME/.config/rofi/capture-tools.sh" color ;;
+    "Capture › OCR Region to Clipboard") "$HOME/.config/rofi/capture-tools.sh" ocr ;;
+    "Capture › Open Screenshots Folder") "$HOME/.config/rofi/capture-tools.sh" open-folder ;;
     "Appearance › Themes") noctalia msg settings-open theme ;;
     "Appearance › Wallpapers") noctalia msg panel-toggle wallpaper ;;
     "Appearance › Toggle Light/Dark Mode") noctalia msg theme-mode-toggle ;;
