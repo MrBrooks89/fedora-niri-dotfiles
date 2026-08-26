@@ -6,8 +6,8 @@
 # Set the duration for each image (in seconds)
 DURATION=300
 
-# Specify the full path to your Pictures directory
-PICTURES_DIR="/home/mrbrooks/Pictures"
+# Respect an exported XDG pictures directory, with the standard fallback.
+PICTURES_DIR="${XDG_PICTURES_DIR:-$HOME/Pictures}"
 
 # Loop indefinitely
 while true; do

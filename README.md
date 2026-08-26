@@ -66,6 +66,18 @@ repo/codex/skills/fedora-niri
 
 Existing configs are backed up before links are created.
 
+The bootstrap discovers the invoking non-root account, UID, and home directory
+from the local system. Tracked configuration uses `$HOME` or XDG paths, and the
+greeter configuration is rendered with that account at install time. The repo
+can therefore be cloned to any location and used with a username chosen during
+Fedora installation; it does not rewrite tracked files with that username.
+
+Some settings remain intentionally machine- or preference-specific, including
+monitor layout, weather location, static networking, and the personal package
+selection. Review those before installing the setup for someone else. Names
+such as `mrbrooks/command-center` are stable Noctalia plugin identifiers, not
+Linux usernames or home-directory assumptions.
+
 Noctalia-generated Niri, Kitty, and btop theme outputs are intentionally ignored
 by Git. On a fresh clone, the bootstrap creates valid fallback files before it
 links the configurations. Noctalia replaces those fallbacks after it starts and
@@ -124,6 +136,8 @@ Because the script lives inside this repo, **no dotfiles option is required**:
 ```
 
 The script automatically uses its own directory as the dotfiles source.
+It must be run as the intended desktop user, not with `sudo`; privileged steps
+prompt through `sudo` individually.
 
 A fuller install:
 
@@ -261,8 +275,9 @@ Noctalia Greeter (pinned source build)
 
 The bootstrap builds the official Noctalia Greeter revision pinned in
 `install-noctalia-greeter.sh`, installs its binaries under `/usr/local`, and
-configures greetd to launch Niri. Stable appearance, authentication, session,
-and user defaults live in `noctalia-greeter/greeter.toml`. Noctalia's
+configures greetd to launch Niri. Stable appearance, authentication, and
+session defaults live in `noctalia-greeter/greeter.toml`; the login user is
+discovered and inserted into the installed copy. Noctalia's
 `greeter-sync` command owns mutable theme, wallpaper, and output state in
 `/var/lib/noctalia-greeter/sync.toml`.
 
@@ -287,7 +302,7 @@ its configuration:
 ```bash
 systemctl status greetd --no-pager
 journalctl -b -u greetd --no-pager
-sudo ./configure-noctalia-greeter.sh
+./install-noctalia-greeter.sh
 sudo systemctl enable greetd
 ```
 
@@ -638,6 +653,12 @@ codex login
 gh auth login --hostname github.com
 ./diagnostics/install.sh
 ```
+
+The diagnostic scripts derive their GitHub target from the checkout's `origin`.
+That repository must be owned by the account reported by `gh`; a friend using
+this setup should fork the repository, set `origin` to their fork, and then run
+the installer. This prevents automated reports and branches from targeting the
+original repository without its owner's credentials.
 
 For a fresh bootstrap, use:
 

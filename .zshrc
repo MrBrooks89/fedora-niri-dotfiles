@@ -43,8 +43,3 @@ if [ -f "$HOME/.env" ]; then
   done < "$HOME/.env"
 fi
 export PATH="$HOME/.local/bin:$PATH"
-
-
-# Added by Antigravity CLI installer
-export PATH="/home/mrbrooks/.local/bin:$PATH"
-

@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
 swww-daemon &
-/home/mrbrooks/.config/niri/cycle_wallpapers.sh
+"${XDG_CONFIG_HOME:-$HOME/.config}/niri/cycle_wallpapers.sh"

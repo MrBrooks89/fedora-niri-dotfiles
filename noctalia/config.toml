@@ -168,7 +168,7 @@ enabled = true
 
 [wallpaper]
 enabled = true
-directory = "/home/mrbrooks/Pictures/Wallpapers"
+directory = "$HOME/Pictures/Wallpapers"
 fill_mode = "crop"
 fill_color = "#000000"
 transition = ["fade", "disc", "stripes", "wipe", "pixelate", "honeycomb"]
@@ -249,7 +249,7 @@ auto_update = "all"
 [[plugins.source]]
 name = "local"
 kind = "path"
-location = "/home/mrbrooks/.config/noctalia/plugins"
+location = "$HOME/.config/noctalia/plugins"
 enabled = true
 
 [[plugins.source]]
@@ -265,7 +265,7 @@ location = "https://github.com/noctalia-dev/community-plugins"
 enabled = true
 
 [plugin_settings."noctalia/screen_recorder"]
-directory = "/home/mrbrooks/Videos/ScreenRecordings"
+directory = "$HOME/Videos/ScreenRecordings"
 frame_rate = 60
 audio_codec = "aac"
 video_codec = "h264"

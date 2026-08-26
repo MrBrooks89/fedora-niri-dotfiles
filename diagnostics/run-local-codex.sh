@@ -4,7 +4,12 @@ set -Eeuo pipefail
 readonly script_path="$(readlink -f -- "${BASH_SOURCE[0]}")"
 readonly script_dir="$(cd -- "$(dirname -- "$script_path")" && pwd)"
 readonly repo_dir="$(git -C "$script_dir" rev-parse --show-toplevel)"
-readonly github_repo="MrBrooks89/fedora-niri-dotfiles"
+source "$script_dir/lib.sh"
+github_repo="$(resolve_github_repo "$repo_dir")" || {
+    echo "ERROR: Git origin must be a GitHub owner/repository URL." >&2
+    exit 1
+}
+readonly github_repo
 readonly state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/fedora-niri-diagnostics"
 
 report_file=""

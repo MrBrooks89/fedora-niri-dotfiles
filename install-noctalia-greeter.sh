@@ -4,6 +4,12 @@ set -euo pipefail
 readonly GREETER_REPOSITORY="https://github.com/noctalia-dev/noctalia-greeter.git"
 readonly GREETER_REVISION="5956c6f40249b2837bb260d25ea3953a2631fbdc"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly INSTALL_USER="$(id -un)"
+
+[[ "$INSTALL_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || {
+    echo "ERROR: Unsupported login name: $INSTALL_USER" >&2
+    exit 1
+}
 
 build_dir="$(mktemp -d --tmpdir noctalia-greeter-build.XXXXXX)"
 trap 'rm -rf -- "$build_dir"' EXIT
@@ -32,8 +38,9 @@ meson setup "$build_dir/source/build-release" \
 meson compile -C "$build_dir/source/build-release"
 sudo meson install -C "$build_dir/source/build-release"
 sudo "$SCRIPT_DIR/configure-noctalia-greeter.sh" \
-    "$build_dir/source/scripts/setup_greeter_system.sh"
+    "$build_dir/source/scripts/setup_greeter_system.sh" \
+    "$INSTALL_USER"
 
 echo
 echo "Noctalia Greeter is installed and configured, but display-manager services were not changed."
-echo "Preview it inside Niri before switching away from GDM."
+echo "Preview it inside Niri before changing the active display-manager service."

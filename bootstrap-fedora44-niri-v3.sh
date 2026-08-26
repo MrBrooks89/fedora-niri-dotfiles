@@ -164,6 +164,18 @@ if [[ $EUID -eq 0 ]]; then
     exit 1
 fi
 
+INSTALL_USER="$(id -un)"
+INSTALL_UID="$(id -u)"
+INSTALL_HOME="$(getent passwd "$INSTALL_USER" | cut -d: -f6)"
+
+if [[ -z "$INSTALL_HOME" || "$INSTALL_HOME" != "$HOME" ]]; then
+    echo "ERROR: Account home from passwd does not match HOME." >&2
+    echo "       user=$INSTALL_USER passwd_home=$INSTALL_HOME HOME=$HOME" >&2
+    exit 1
+fi
+
+echo "==> Installing for $INSTALL_USER (uid $INSTALL_UID, home $INSTALL_HOME)"
+
 if [[ ! -r /etc/fedora-release ]]; then
     echo "This script is intended for Fedora." >&2
     exit 1
