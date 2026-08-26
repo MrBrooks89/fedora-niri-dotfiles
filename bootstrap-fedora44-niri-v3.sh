@@ -217,6 +217,7 @@ sudo dnf -y install \
     zsh git curl wget vim-enhanced nano tmux btop \
     neovim eza \
     python3 python3-pip gcc gcc-c++ make \
+    dnf-plugins-core \
     unzip tar rsync jq ripgrep fd-find \
     pciutils usbutils rfkill \
     NetworkManager \
@@ -280,6 +281,10 @@ sudo dnf -y install teams-for-linux
 
 rm -f "$teams_signing_key"
 trap - EXIT
+
+echo "==> Installing Joplin from taw/joplin COPR"
+sudo dnf -y copr enable taw/joplin
+sudo dnf -y install joplin
 
 if [[ "$CONFIGURE_GITHUB" -eq 1 ]]; then
     echo "==> Configuring Git identity and GitHub CLI"
@@ -725,6 +730,7 @@ echo
 echo "Installed/handled:"
 echo "  niri + Noctalia"
 echo "  Kitty + Firefox + Dolphin"
+echo "  Joplin"
 echo "  Neovim + eza + Starship"
 echo "  JetBrains Mono"
 echo "  NetworkManager Wi-Fi support"

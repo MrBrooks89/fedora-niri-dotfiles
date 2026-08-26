@@ -225,6 +225,7 @@ niri
 Noctalia
 Kitty
 Firefox
+Joplin
 PipeWire
 WirePlumber
 polkit
@@ -232,6 +233,16 @@ xdg-user-dirs
 xdg-desktop-portal
 xdg-desktop-portal-gtk
 xdg-desktop-portal-kde
+```
+
+Joplin is installed by default from the `taw/joplin` COPR repository. The
+bootstrap installs the COPR support plugin, enables that repository, and then
+installs the `joplin` package:
+
+```bash
+sudo dnf -y install dnf-plugins-core
+sudo dnf -y copr enable taw/joplin
+sudo dnf -y install joplin
 ```
 
 Login stack:
