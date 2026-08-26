@@ -19,4 +19,4 @@ position = "center"
 open_near_click = false
 dismiss_on_outside_click = true
 keyboard_focus = "exclusive"
-
+capture_keys = ["up", "down", "right", "return", "alt+left"]

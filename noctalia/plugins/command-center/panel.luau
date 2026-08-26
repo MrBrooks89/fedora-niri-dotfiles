@@ -7,6 +7,7 @@ local applications = {}
 local applicationsLoading = false
 local applicationsLoaded = false
 local inputGeneration = 0
+local selectedIndex = 1
 local MAX_VISIBLE_RESULTS = 10
 
 local categories = {
@@ -144,6 +145,7 @@ end
 local function openCategory(category)
     currentCategory = category.id
     query = ""
+    selectedIndex = 1
     inputGeneration += 1
     render()
 end
@@ -156,7 +158,14 @@ local function activateApplication(application)
     closeAndRun({ "gio", "launch", application.path })
 end
 
-local function resultRow(item)
+local function activateItem(item)
+    if item == nil then return end
+    if item.path ~= nil then activateApplication(item)
+    elseif item.dispatch ~= nil then activateAction(item)
+    elseif item.id ~= nil then openCategory(item) end
+end
+
+local function resultRow(item, selected)
     local isApplication = item.path ~= nil
     local subtitle = item.subtitle or ""
     if query ~= "" then
@@ -180,7 +189,9 @@ local function resultRow(item)
         paddingH = 12,
         gap = 12,
         align = "center",
-        fill = "surface_variant/0.38",
+        fill = selected and "primary/0.18" or "surface_variant/0.38",
+        borderWidth = selected and 1 or 0,
+        borderColor = "primary/0.62",
         radius = 11,
         onClick = function()
             if isApplication then activateApplication(item) else activateAction(item) end
@@ -195,14 +206,16 @@ local function resultRow(item)
     })
 end
 
-local function categoryRow(category)
+local function categoryRow(category, selected)
     return ui.row({
         key = "category-" .. category.id,
         height = 62,
         paddingH = 13,
         gap = 13,
         align = "center",
-        fill = "surface_variant/0.38",
+        fill = selected and "primary/0.18" or "surface_variant/0.38",
+        borderWidth = selected and 1 or 0,
+        borderColor = "primary/0.62",
         radius = 12,
         onClick = function() openCategory(category) end,
     }, {
@@ -220,23 +233,38 @@ end
 local function goBack()
     currentCategory = nil
     query = ""
+    selectedIndex = 1
     inputGeneration += 1
     render()
 end
 
 local function onSearchChanged(value)
     query = value or ""
+    selectedIndex = 1
     render()
 end
 
 local function onSearchSubmitted(value)
     query = value or ""
     local items = matchingItems()
-    local first = items[1]
-    if first == nil then return end
-    if first.path ~= nil then activateApplication(first)
-    elseif first.dispatch ~= nil then activateAction(first)
-    elseif first.id ~= nil then openCategory(first) end
+    activateItem(items[selectedIndex] or items[1])
+end
+
+function onKey(chord, pressed)
+    if not pressed or not isOpen then return end
+
+    local items = matchingItems()
+    if chord == "down" and #items > 0 then
+        selectedIndex = (selectedIndex % #items) + 1
+        render()
+    elseif chord == "up" and #items > 0 then
+        selectedIndex = ((selectedIndex - 2) % #items) + 1
+        render()
+    elseif chord == "return" or chord == "right" then
+        activateItem(items[selectedIndex] or items[1])
+    elseif chord == "alt+left" and currentCategory ~= nil then
+        goBack()
+    end
 end
 
 render = function()
@@ -262,6 +290,11 @@ render = function()
     headerChildren[#headerChildren + 1] = ui.button({ glyph = "x", variant = "ghost", tooltip = "Close", onClick = function() panel.close() end })
 
     local items = matchingItems()
+    if #items == 0 then
+        selectedIndex = 1
+    elseif selectedIndex > #items then
+        selectedIndex = #items
+    end
     local rows = {}
     if #items == 0 then
         local status = applicationsLoading and "Indexing applications…" or "No matching applications or commands"
@@ -270,8 +303,8 @@ render = function()
             ui.label({ text = status, fontSize = 13, color = "on_surface_variant" }),
         })
     else
-        for _, item in ipairs(items) do
-            rows[#rows + 1] = (item.dispatch ~= nil or item.path ~= nil) and resultRow(item) or categoryRow(item)
+        for index, item in ipairs(items) do
+            rows[#rows + 1] = (item.dispatch ~= nil or item.path ~= nil) and resultRow(item, index == selectedIndex) or categoryRow(item, index == selectedIndex)
         end
     end
 
@@ -294,7 +327,7 @@ render = function()
         ui.scroll({ key = "command-results", flexGrow = 1, gap = 7 }, rows),
         ui.row({ align = "center", justify = "space_between", paddingH = 3 }, {
             ui.label({ text = applicationsLoaded and (tostring(#applications) .. " applications indexed") or "Loading applications", fontSize = 10, color = "on_surface_variant" }),
-            ui.label({ text = "Enter select  ·  Esc close", fontSize = 10, color = "on_surface_variant" }),
+            ui.label({ text = "↑↓ navigate  ·  →/Enter select  ·  Alt+← back  ·  Esc close", fontSize = 10, color = "on_surface_variant" }),
         }),
     }))
 end
@@ -335,6 +368,7 @@ function onOpen(_context)
     isOpen = true
     query = ""
     currentCategory = nil
+    selectedIndex = 1
     inputGeneration += 1
     render()
     loadApplications()
