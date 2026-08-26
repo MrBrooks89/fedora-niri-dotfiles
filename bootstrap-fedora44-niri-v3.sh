@@ -22,6 +22,7 @@ set -Eeuo pipefail
 #   ├── niri/
 #   ├── nvim/
 #   ├── noctalia/              # optional
+#   ├── codex/skills/fedora-niri/
 #   └── satty/                 # optional
 #
 # Symlink targets:
@@ -31,6 +32,7 @@ set -Eeuo pipefail
 #   ~/.config/niri
 #   ~/.config/nvim
 #   ~/.config/noctalia
+#   ~/.codex/skills/fedora-niri
 #   ~/.config/satty
 #
 # Existing configs are backed up before symlinks are created.
@@ -363,9 +365,20 @@ if [[ "$WITH_CODEX" -eq 1 ]]; then
         sha256sum -c "$CODEXBAR_ASSET.sha256"
         tar -xzf "$CODEXBAR_ASSET"
     )
-    CODEXBAR_BIN="$(find "$CODEXBAR_TMP" -type f -name codexbar -print -quit)"
-    [[ -n "$CODEXBAR_BIN" ]] || { echo "ERROR: codexbar binary missing from archive." >&2; exit 1; }
-    install -m 755 "$CODEXBAR_BIN" "$HOME/.local/bin/codexbar"
+    CODEXBAR_BIN="$CODEXBAR_TMP/CodexBarCLI"
+    CODEXBAR_BUNDLE="$CODEXBAR_TMP/CodexBar_CodexBarCore.bundle"
+    if [[ ! -x "$CODEXBAR_BIN" || ! -d "$CODEXBAR_BUNDLE" ]]; then
+        echo "ERROR: CodexBar executable or resource bundle missing from archive." >&2
+        exit 1
+    fi
+
+    # The Linux release contains a CodexBarCLI executable, a lowercase symlink,
+    # and a Swift resource bundle that must remain beside the executable.
+    CODEXBAR_INSTALL_DIR="$HOME/.local/lib/codexbar/$CODEXBAR_TAG"
+    mkdir -p "$CODEXBAR_INSTALL_DIR" "$HOME/.local/bin"
+    install -m 755 "$CODEXBAR_BIN" "$CODEXBAR_INSTALL_DIR/CodexBarCLI"
+    cp -a "$CODEXBAR_BUNDLE" "$CODEXBAR_INSTALL_DIR/"
+    ln -sfn "$CODEXBAR_INSTALL_DIR/CodexBarCLI" "$HOME/.local/bin/codexbar"
     rm -rf -- "$CODEXBAR_TMP"
 
     "$HOME/.local/bin/codexbar" config enable --provider codex
@@ -460,6 +473,7 @@ backup_and_link "$DOTFILES_DIR/niri"          "$HOME/.config/niri"
 backup_and_link "$DOTFILES_DIR/nvim"          "$HOME/.config/nvim"
 backup_and_link "$DOTFILES_DIR/noctalia"      "$HOME/.config/noctalia"
 backup_and_link "$DOTFILES_DIR/satty"         "$HOME/.config/satty"
+backup_and_link "$DOTFILES_DIR/codex/skills/fedora-niri" "$HOME/.codex/skills/fedora-niri"
 
 if [[ -d "$BACKUP_DIR" ]]; then
     echo "    previous configs saved under: $BACKUP_DIR"

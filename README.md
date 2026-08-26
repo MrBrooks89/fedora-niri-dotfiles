@@ -490,6 +490,18 @@ If the plugin has not yet been materialized, finish it from the UI:
 The widget opens its usage panel on left-click and refreshes on right-click.
 Its default refresh interval is 60 seconds.
 
+### Codex desktop guidance
+
+The repository includes two instruction layers for Codex:
+
+- `AGENTS.md` describes repository conventions and validation commands.
+- `codex/skills/fedora-niri/SKILL.md` provides reusable Fedora/Niri/Noctalia
+  desktop guidance.
+
+The bootstrap links the skill to `~/.codex/skills/fedora-niri`. Restart Codex
+after the first installation so it discovers the new skill. Authentication and
+session data remain in `~/.codex` and are intentionally not tracked.
+
 ## Docker + containerlab
 
 Docker:
