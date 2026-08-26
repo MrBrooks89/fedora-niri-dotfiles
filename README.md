@@ -390,6 +390,10 @@ Verify:
 gsettings get org.gnome.desktop.interface color-scheme
 ```
 
+Qt applications such as Dolphin follow the same preference through Niri's
+`QT_QPA_PLATFORMTHEME=gtk3` environment setting. This uses Fedora's Qt GTK
+integration and does not require `qt6ct` or Kvantum.
+
 Useful discovery commands:
 
 ```bash

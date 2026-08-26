@@ -239,6 +239,22 @@ sudo dnf -y install \
     grim slurp wl-clipboard \
     libreoffice
 
+echo "==> Installing Teams for Linux from its official repository"
+teams_signing_key="$(mktemp --suffix=-teams-for-linux.asc)"
+trap 'rm -f "$teams_signing_key"' EXIT
+
+curl -1sSfL \
+    -o "$teams_signing_key" \
+    https://repo.teamsforlinux.de/teams-for-linux.asc
+sudo rpm --import "$teams_signing_key"
+sudo curl -1sSfL \
+    -o /etc/yum.repos.d/teams-for-linux.repo \
+    https://repo.teamsforlinux.de/rpm/teams-for-linux.repo
+sudo dnf -y install teams-for-linux
+
+rm -f "$teams_signing_key"
+trap - EXIT
+
 echo "==> Installing GDM + minimal GNOME fallback/settings desktop"
 sudo dnf -y install \
     gdm gnome-shell gnome-session gnome-control-center
@@ -653,7 +669,7 @@ echo "Verification:"
 echo "  ls -l ~/.config/niri ~/.config/kitty ~/.config/nvim ~/.zshrc"
 echo "  niri validate"
 echo "  nmcli device status"
-echo "  command -v niri noctalia kitty dolphin nvim eza starship"
+echo "  command -v niri noctalia kitty dolphin teams-for-linux nvim eza starship"
 echo "  fc-match 'JetBrains Mono'"
 echo "  gsettings get org.gnome.desktop.interface color-scheme"
 echo "  id"
