@@ -1,6 +1,6 @@
 ---
 name: fedora-niri
-description: Manage and troubleshoot this user's Fedora workstation configuration using Niri, Noctalia v5, Rofi, Kitty, and the tracked Fedora dotfiles bootstrap. Use for desktop layout, displays, keybindings, command-center and capture workflows, bar widgets, coordinated themes, Wayland application behavior, and related dotfile changes. Do not use for Omarchy or Hyprland systems.
+description: Manage and troubleshoot this user's Fedora workstation configuration using Niri, Noctalia v5, Kitty, and the tracked Fedora dotfiles bootstrap. Use for desktop layout, displays, keybindings, command-center and capture workflows, bar widgets, coordinated themes, Wayland application behavior, and related dotfile changes. Do not use for Omarchy or Hyprland systems.
 ---
 
 # Fedora Niri Workstation
@@ -19,7 +19,6 @@ configuration:
 | Noctalia | `noctalia/` | `~/.config/noctalia/` |
 | Kitty | `kitty/` | `~/.config/kitty/` |
 | Neovim | `nvim/` | `~/.config/nvim/` |
-| Rofi command center | `rofi/` | `~/.config/rofi/` |
 | btop | `btop/` | `~/.config/btop/` |
 | Shell | `.zshrc`, `starship.toml` | `~/.zshrc`, `~/.config/starship.toml` |
 
@@ -32,8 +31,6 @@ one of its behaviors.
 
 - Keep applications native Wayland unless the user explicitly chooses an
   XWayland workaround.
-- Fedora 44's `rofi` 2.x package is Wayland-native and replaces the old
-  `rofi-wayland` package name.
 - Use current Niri KDL and Noctalia v5 TOML. Treat old Noctalia Shell v4 QML,
   JSON, and Home Manager options as migration inputs, not valid v5 settings.
 - Check `~/.local/state/noctalia/settings.toml` when a tracked Noctalia setting
@@ -50,17 +47,7 @@ one of its behaviors.
   `mrbrooks/command-center:panel`, tracked under
   `noctalia/plugins/command-center/`. Keep its idle root at six categories,
   nested browsing, and direct root search across applications and leaf actions.
-- Preserve `rofi/unified-command-center.sh` and its supporting scripts as the
-  tested fallback until the user explicitly approves removing Rofi. Its combined
-  provider order remains categories, desktop applications, then actions.
-- The Rofi category and action providers are separate scripts. Category
-  selection calls `command-center.sh`; actions may execute directly through the
-  same dispatcher. Do not collapse them into one provider, which exposes every
-  application or action in the unfiltered root.
-- Keep Rofi's mode-next, mode-previous, row-left, row-right, and plain-arrow
-  cursor bindings disabled in the unified launcher. Otherwise Left/Right cycles
-  into the application provider. Text cursor movement uses `Ctrl+B`/`Ctrl+F`.
-- `rofi/capture-tools.sh` owns screenshots, Satty annotation, color picking,
+- The command-center plugin's `capture-tools.sh` owns screenshots, Satty annotation, color picking,
   OCR, save/copy/open actions, and the screenshots folder. Niri captures the
   focused window/output; Grim and Slurp capture regions or all outputs.
 - Noctalia owns clipboard history, idle locking/suspend, OSD-backed hardware
@@ -68,10 +55,10 @@ one of its behaviors.
 
 ## Coordinated theming
 
-Noctalia v5 renders built-in templates for Niri, Kitty, btop, and GTK, plus
-tracked user templates for Neovim and Rofi. Edit template sources under
-`noctalia/templates/`, not generated outputs such as `rofi/theme.rasi` or
-`niri/noctalia.kdl`. After template changes, run:
+Noctalia v5 renders built-in templates for Niri, Kitty, btop, and GTK, plus a
+tracked user template for Neovim. Edit template sources under
+`noctalia/templates/`, not generated outputs such as `niri/noctalia.kdl`.
+After template changes, run:
 
 ```bash
 noctalia msg config-reload
@@ -100,11 +87,8 @@ Validate only what changed:
 bash -n ~/Documents/.dotfiles/bootstrap-fedora44-niri-v3.sh
 niri validate -c ~/Documents/.dotfiles/niri/config.kdl
 noctalia config validate ~/Documents/.dotfiles/noctalia/config.toml
-bash -n ~/Documents/.dotfiles/rofi/command-center.sh
-bash -n ~/Documents/.dotfiles/rofi/unified-command-center.sh
-bash -n ~/Documents/.dotfiles/rofi/command-center-categories-mode.sh
-bash -n ~/Documents/.dotfiles/rofi/command-center-mode.sh
-bash -n ~/Documents/.dotfiles/rofi/capture-tools.sh
+bash -n ~/Documents/.dotfiles/noctalia/plugins/command-center/dispatch-action.sh
+bash -n ~/Documents/.dotfiles/noctalia/plugins/command-center/capture-tools.sh
 bash -n ~/Documents/.dotfiles/noctalia/plugins/command-center/list-applications.sh
 noctalia plugins lint ~/Documents/.dotfiles/noctalia/plugins/command-center
 git -C ~/Documents/.dotfiles diff --check

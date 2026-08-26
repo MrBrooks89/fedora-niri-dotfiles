@@ -8,12 +8,6 @@ notify() {
     notify-send --app-name="Capture Tools" "$1" "${2:-}"
 }
 
-menu() {
-    local prompt="$1"
-    shift
-    printf '%s\n' "$@" | rofi -dmenu -i -no-custom -p "$prompt"
-}
-
 new_path() {
     printf '%s/Screenshot %(%Y-%m-%d %H-%M-%S)T.png' "$screenshot_dir" -1
 }
@@ -46,30 +40,20 @@ capture_image() {
 
 finish_screenshot() {
     local image="$1"
-    local forced_action="${2:-}"
-    local action destination
-
-    if [[ -n "$forced_action" ]]; then
-        action="$forced_action"
-    else
-        action=$(menu "Screenshot Result" \
-            "Copy to Clipboard" \
-            "Save" \
-            "Annotate" \
-            "Save and Open") || return
-    fi
+    local action="${2:-save}"
+    local destination
 
     case "$action" in
-        "Copy to Clipboard"|copy)
+        copy)
             wl-copy --type image/png <"$image"
             notify "Screenshot copied" "The image is ready to paste."
             ;;
-        Save|save)
+        save)
             destination=$(new_path)
             install -m 0644 "$image" "$destination"
             notify "Screenshot saved" "$destination"
             ;;
-        Annotate|annotate)
+        annotate)
             destination=$(new_path)
             satty \
                 --filename "$image" \
@@ -78,17 +62,21 @@ finish_screenshot() {
                 --no-window-decoration \
                 --floating-hack
             ;;
-        "Save and Open"|open)
+        open)
             destination=$(new_path)
             install -m 0644 "$image" "$destination"
             xdg-open "$destination" >/dev/null 2>&1 &
+            ;;
+        *)
+            notify "Capture failed" "Unknown result action: $action"
+            return 1
             ;;
     esac
 }
 
 screenshot() {
     local source="$1"
-    local forced_action="${2:-}"
+    local action="${2:-save}"
     local image
     image=$(mktemp --suffix=.png)
 
@@ -96,7 +84,7 @@ screenshot() {
         rm -f "$image"
         return
     fi
-    finish_screenshot "$image" "$forced_action"
+    finish_screenshot "$image" "$action"
     rm -f "$image"
 }
 
@@ -134,7 +122,7 @@ ocr_region() {
 }
 
 case "${1:-}" in
-    screenshot) screenshot "${2:-region}" "${3:-}" ;;
+    screenshot) screenshot "${2:-region}" "${3:-save}" ;;
     color) pick_color ;;
     ocr) ocr_region ;;
     open-folder) xdg-open "$screenshot_dir" >/dev/null 2>&1 & ;;

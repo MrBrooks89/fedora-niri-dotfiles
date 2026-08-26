@@ -149,7 +149,7 @@ local function openCategory(category)
 end
 
 local function activateAction(action)
-    closeAndRun({ noctalia.expandPath("~/.config/rofi/command-center.sh"), action.dispatch })
+    closeAndRun({ noctalia.pluginDir() .. "/dispatch-action.sh", action.dispatch })
 end
 
 local function activateApplication(application)
