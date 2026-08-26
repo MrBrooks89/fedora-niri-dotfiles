@@ -33,7 +33,8 @@ explicitly asks for a live-only experiment. Preserve unrelated user changes.
   browsing, root application/action search, and safe application launching.
 - Preserve full keyboard operation in the command center: typing searches,
   Up/Down changes the highlighted row, Right/Enter activates it, Alt+Left goes
-  back, and Escape closes the panel. Keep the selected row visibly distinct.
+  back, and Escape closes the panel. Keep the selected row visibly distinct and
+  inside the current scroll viewport as keyboard selection moves.
 - Keep screenshot, annotation, color-picker, OCR, copy/save/open, and recording
   entry points consolidated through the command-center plugin and Capture menu.
   Normal screenshot actions save directly under `~/Pictures/Screenshots`; the

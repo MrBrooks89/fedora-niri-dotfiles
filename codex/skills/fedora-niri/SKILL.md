@@ -49,7 +49,8 @@ one of its behaviors.
   nested browsing, and direct root search across applications and leaf actions.
 - Preserve the command center's keyboard model: typing searches, Up/Down moves
   the visible selection, Right/Enter activates it, Alt+Left returns to the root,
-  and Escape closes the panel.
+  and Escape closes the panel. Keyboard movement must keep the selected row in
+  the scroll viewport without disabling mouse-wheel scrolling.
 - The command-center plugin's `dispatch-action.sh` owns exact-string action
   dispatch. Its `capture-tools.sh` owns screenshots, Satty annotation, color
   picking, OCR, save/copy/open actions, and the screenshots folder. Normal

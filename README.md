@@ -390,7 +390,7 @@ Keyboard controls:
 | Key | Action |
 | --- | --- |
 | Type | Search applications and actions |
-| `Up` / `Down` | Move the highlighted selection |
+| `Up` / `Down` | Move the highlighted selection and follow it through the list |
 | `Right` / `Enter` | Open the selected category or action |
 | `Alt+Left` | Return to the category root |
 | `Escape` | Close the panel |

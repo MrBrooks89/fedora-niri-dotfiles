@@ -8,7 +8,11 @@ local applicationsLoading = false
 local applicationsLoaded = false
 local inputGeneration = 0
 local selectedIndex = 1
+local scrollGeneration = 0
+local scrollToBottomRevision = 0
+local scrollAtBottom = false
 local MAX_VISIBLE_RESULTS = 10
+local TOP_VIEW_LAST_INDEX = 5
 
 local categories = {
     { id = "applications", title = "Applications", subtitle = "Installed desktop applications", glyph = "apps" },
@@ -137,6 +141,20 @@ end
 
 local render
 
+local function resetScrollToTop()
+    scrollAtBottom = false
+    scrollGeneration += 1
+end
+
+local function followSelection(itemCount)
+    if itemCount == 0 or selectedIndex <= TOP_VIEW_LAST_INDEX then
+        if scrollAtBottom then resetScrollToTop() end
+    else
+        scrollAtBottom = true
+        scrollToBottomRevision += 1
+    end
+end
+
 local function closeAndRun(argv)
     panel.close()
     noctalia.runAsync(argv)
@@ -146,6 +164,7 @@ local function openCategory(category)
     currentCategory = category.id
     query = ""
     selectedIndex = 1
+    resetScrollToTop()
     inputGeneration += 1
     render()
 end
@@ -234,6 +253,7 @@ local function goBack()
     currentCategory = nil
     query = ""
     selectedIndex = 1
+    resetScrollToTop()
     inputGeneration += 1
     render()
 end
@@ -241,6 +261,7 @@ end
 local function onSearchChanged(value)
     query = value or ""
     selectedIndex = 1
+    resetScrollToTop()
     render()
 end
 
@@ -256,9 +277,11 @@ function onKey(chord, pressed)
     local items = matchingItems()
     if chord == "down" and #items > 0 then
         selectedIndex = (selectedIndex % #items) + 1
+        followSelection(#items)
         render()
     elseif chord == "up" and #items > 0 then
         selectedIndex = ((selectedIndex - 2) % #items) + 1
+        followSelection(#items)
         render()
     elseif chord == "return" or chord == "right" then
         activateItem(items[selectedIndex] or items[1])
@@ -324,7 +347,12 @@ render = function()
                 onSubmit = onSearchSubmitted,
             }),
         }),
-        ui.scroll({ key = "command-results", flexGrow = 1, gap = 7 }, rows),
+        ui.scroll({
+            key = "command-results-" .. tostring(scrollGeneration),
+            flexGrow = 1,
+            gap = 7,
+            scrollToBottomRev = scrollAtBottom and scrollToBottomRevision or nil,
+        }, rows),
         ui.row({ align = "center", justify = "space_between", paddingH = 3 }, {
             ui.label({ text = applicationsLoaded and (tostring(#applications) .. " applications indexed") or "Loading applications", fontSize = 10, color = "on_surface_variant" }),
             ui.label({ text = "↑↓ navigate  ·  →/Enter select  ·  Alt+← back  ·  Esc close", fontSize = 10, color = "on_surface_variant" }),
@@ -369,6 +397,7 @@ function onOpen(_context)
     query = ""
     currentCategory = nil
     selectedIndex = 1
+    resetScrollToTop()
     inputGeneration += 1
     render()
     loadApplications()
