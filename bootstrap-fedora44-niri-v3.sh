@@ -580,6 +580,7 @@ fi
 echo "==> Setting GTK/libadwaita preference to dark"
 if command -v gsettings >/dev/null 2>&1; then
     gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' || true
+    gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark' || true
 fi
 
 echo "==> Configuring preferred KDE file chooser portal for niri"

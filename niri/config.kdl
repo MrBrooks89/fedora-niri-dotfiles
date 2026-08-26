@@ -117,9 +117,11 @@ layout {
 }
 
 environment {
-    // Use Fedora's installed Qt GTK integration so Qt apps follow the
-    // org.gnome.desktop.interface color-scheme preference.
+    // Qt's GTK platform theme follows the GTK 3 theme name, not the
+    // libadwaita color-scheme preference. Force its dark Adwaita variant so
+    // KDE/Qt apps such as Dolphin also start dark outside Plasma.
     QT_QPA_PLATFORMTHEME "gtk3"
+    GTK_THEME "Adwaita:dark"
 }
 
 

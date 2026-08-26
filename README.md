@@ -382,17 +382,21 @@ Persistent dark-mode preference:
 
 ```bash
 gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
 ```
 
 Verify:
 
 ```bash
 gsettings get org.gnome.desktop.interface color-scheme
+gsettings get org.gnome.desktop.interface gtk-theme
 ```
 
-Qt applications such as Dolphin follow the same preference through Niri's
-`QT_QPA_PLATFORMTHEME=gtk3` environment setting. This uses Fedora's Qt GTK
-integration and does not require `qt6ct` or Kvantum.
+Qt applications such as Dolphin use Fedora's Qt GTK integration through Niri's
+`QT_QPA_PLATFORMTHEME=gtk3` environment setting. The GTK 3 platform theme does
+not consume libadwaita's `color-scheme` preference, so Niri also exports
+`GTK_THEME=Adwaita:dark`. This keeps Dolphin dark without requiring `qt6ct` or
+Kvantum.
 
 Useful discovery commands:
 
