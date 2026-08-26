@@ -43,9 +43,9 @@ failed_user="$(systemctl --user --failed --no-legend --plain 2>/dev/null || true
 failed_system="$(systemctl --failed --no-legend --plain 2>/dev/null || true)"
 coredumps="$(coredumpctl --since "$since" --no-pager --no-legend 2>/dev/null | tail -n 50 || true)"
 journal_errors="$(journalctl --since "$since" --priority=warning..alert --no-pager -o short-iso 2>/dev/null | \
-    rg -i 'niri|noctalia|greetd|xdg-desktop-portal|pipewire|wireplumber|segfault|coredump|failed' | tail -n 120 || true)"
+    rg -i 'niri|noctalia|greetd|xdg-desktop-portal|pipewire|wireplumber|segfault|coredump' | tail -n 120 || true)"
 user_journal_errors="$(journalctl --user --since "$since" --priority=warning..alert --no-pager -o short-iso 2>/dev/null | \
-    rg -i 'niri|noctalia|xdg-desktop-portal|pipewire|wireplumber|segfault|coredump|failed' | tail -n 120 || true)"
+    rg -i 'niri|noctalia|xdg-desktop-portal|pipewire|wireplumber|segfault|coredump' | tail -n 120 || true)"
 
 if [[ "$force" -eq 0 && -z "$failed_user$failed_system$coredumps$journal_errors$user_journal_errors" ]]; then
     echo "No workstation failure signals found since: $since"
