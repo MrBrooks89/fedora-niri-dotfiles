@@ -1,0 +1,9 @@
+[Unit]
+Description=Collect and submit sanitized Fedora Niri failure diagnostics
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/diagnose-workstation
+Nice=10

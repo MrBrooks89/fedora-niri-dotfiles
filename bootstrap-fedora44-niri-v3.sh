@@ -55,6 +55,7 @@ WITH_NERD_FONT=0
 WITH_PROTONUP_RS=0
 WITH_STEAM=0
 WITH_CODEX=0
+WITH_AUTO_DIAGNOSTICS=0
 CONFIGURE_GITHUB=0
 CONFIGURE_NETWORK=0
 
@@ -80,6 +81,8 @@ Options:
   --with-protonup-rs       Install Protonup-rs into ~/.local/bin
   --with-steam             Install Steam
   --with-codex             Install Codex CLI and CodexBar usage helper
+  --with-auto-diagnostics  Enable sanitized crash reports and Codex PR proposals
+                           (requires --configure-github)
   --configure-github       Configure Git identity and authenticate GitHub CLI
   --configure-network      Configure 192.168.4.112/24, gateway/DNS 192.168.4.1
   --all                    Enable all optional software
@@ -120,6 +123,7 @@ while [[ $# -gt 0 ]]; do
         --with-protonup-rs) WITH_PROTONUP_RS=1 ;;
         --with-steam)       WITH_STEAM=1 ;;
         --with-codex)       WITH_CODEX=1 ;;
+        --with-auto-diagnostics) WITH_AUTO_DIAGNOSTICS=1 ;;
         --configure-github) CONFIGURE_GITHUB=1 ;;
         --configure-network) CONFIGURE_NETWORK=1 ;;
         --all)
@@ -145,6 +149,11 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 && "$CONFIGURE_GITHUB" -ne 1 ]]; then
+    echo "--with-auto-diagnostics requires --configure-github." >&2
+    exit 2
+fi
 
 if [[ $EUID -eq 0 ]]; then
     echo "Run this script as your normal user, not root." >&2
@@ -685,6 +694,15 @@ if [[ "$CONFIGURE_NETWORK" -eq 1 ]]; then
     fi
 fi
 
+if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 ]]; then
+    echo "==> Enabling automatic sanitized workstation diagnostics"
+    sudo dnf -y install gh
+    "$DOTFILES_DIR/diagnostics/install.sh"
+else
+    echo "NOTE: Automatic diagnostics are disabled."
+    echo "      Use --with-auto-diagnostics with --configure-github to enable them."
+fi
+
 echo "==> Installing and configuring Noctalia Greeter"
 "$DOTFILES_DIR/install-noctalia-greeter.sh"
 
@@ -710,6 +728,9 @@ echo "  Intel iwlwifi firmware (iwlwifi-mvm-firmware)"
 echo "  Intel iwlwifi driver reload when Intel wireless is detected"
 echo "  greetd + Noctalia Greeter"
 echo "  PipeWire/WirePlumber + XDG portals"
+if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 ]]; then
+    echo "  Sanitized workstation diagnostics + Codex PR workflow"
+fi
 echo
 echo "Important:"
 echo "  If Docker/containerlab groups were changed, completely log out/in."

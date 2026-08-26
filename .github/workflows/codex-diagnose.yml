@@ -1,0 +1,78 @@
+name: Codex workstation diagnosis
+
+on:
+  issues:
+    types: [opened, reopened]
+
+concurrency:
+  group: workstation-diagnostic-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    if: >-
+      github.actor == github.repository_owner &&
+      startsWith(github.event.issue.title, '[workstation-diagnostic]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Build bounded diagnostic prompt
+        env:
+          STATIC_PROMPT: .github/codex/prompts/diagnose-workstation.md
+        run: |
+          cp "$STATIC_PROMPT" "$RUNNER_TEMP/codex-diagnostic.md"
+          jq -r '.issue.body // "No incident body supplied."' "$GITHUB_EVENT_PATH" \
+            > "$RUNNER_TEMP/incident-body.md"
+          head -c 50000 "$RUNNER_TEMP/incident-body.md" \
+            >> "$RUNNER_TEMP/codex-diagnostic.md"
+
+      - name: Diagnose and prepare a repository fix
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ runner.temp }}/codex-diagnostic.md
+          output-file: ${{ runner.temp }}/codex-result.md
+          sandbox: workspace-write
+
+      - name: Publish diagnosis or proposed fix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          RUN_ID: ${{ github.run_id }}
+          RESULT_FILE: ${{ runner.temp }}/codex-result.md
+        run: |
+          if git diff --quiet && git diff --cached --quiet; then
+            gh issue comment "$ISSUE_NUMBER" --body-file "$RESULT_FILE"
+            exit 0
+          fi
+
+          branch="codex/workstation-diagnostic-${ISSUE_NUMBER}-${RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add --all
+          git commit -m "Diagnose workstation incident #${ISSUE_NUMBER}"
+          git push --set-upstream origin "$branch"
+
+          {
+            echo "Automated Codex proposal for #${ISSUE_NUMBER}."
+            echo
+            echo "Review and test this change before merging."
+            echo
+            cat "$RESULT_FILE"
+          } > "$RUNNER_TEMP/pr-body.md"
+          pr_url="$(gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "Fix workstation diagnostic #${ISSUE_NUMBER}" \
+            --body-file "$RUNNER_TEMP/pr-body.md")"
+          gh issue comment "$ISSUE_NUMBER" --body "Proposed fix: $pr_url"

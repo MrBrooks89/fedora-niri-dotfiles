@@ -596,6 +596,53 @@ The bootstrap links the skill to `~/.codex/skills/fedora-niri`. Restart Codex
 after the first installation so it discovers the new skill. Authentication and
 session data remain in `~/.codex` and are intentionally not tracked.
 
+### Automated workstation diagnostics
+
+The optional diagnostic timer checks every 15 minutes for failed systemd units,
+relevant high-priority journal messages, and recent coredumps. Reports are
+bounded, sanitized locally, deduplicated, and submitted as GitHub issues titled
+`[workstation-diagnostic] ...`. A six-hour cooldown prevents repeated failures
+from flooding the repository. Only issues opened by the repository owner can
+trigger `.github/workflows/codex-diagnose.yml`.
+
+The GitHub workflow runs Codex in a workspace-write sandbox. It either comments
+with a diagnosis or pushes a dedicated fix branch and opens a PR. It never
+merges, runs the bootstrap, or modifies the live workstation.
+
+Repository setup requires an `OPENAI_API_KEY` GitHub Actions secret. Local setup
+requires a valid GitHub CLI login:
+
+```bash
+gh auth login --hostname github.com
+./diagnostics/install.sh
+```
+
+For a fresh bootstrap, use:
+
+```bash
+./bootstrap-fedora44-niri-v3.sh \
+    --configure-github \
+    --with-auto-diagnostics
+```
+
+This integration is deliberately opt-in and is not enabled by `--all`.
+
+Test collection without uploading anything:
+
+```bash
+diagnose-workstation --dry-run --force
+```
+
+Inspect or disable the timer:
+
+```bash
+systemctl --user status fedora-niri-diagnostics.timer
+systemctl --user disable --now fedora-niri-diagnostics.timer
+```
+
+The collector deliberately avoids environment dumps, command history,
+clipboard contents, arbitrary home-directory files, and full coredump memory.
+
 ## Docker + containerlab
 
 Docker:
