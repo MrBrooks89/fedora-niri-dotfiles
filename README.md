@@ -26,13 +26,18 @@ Expected layout:
 
 ```text
 fedora-niri-dotfiles/
+├── btop/
+├── codex/
+│   └── skills/fedora-niri/
 ├── kitty/
 ├── niri/
 │   ├── config.kdl
 │   └── screenshot.sh
 ├── nvim/
-├── noctalia/              # optional
-├── satty/                 # optional
+├── noctalia/
+│   ├── config.toml
+│   └── plugins/command-center/
+├── satty/
 ├── .zshrc
 ├── starship.toml
 ├── .gitignore
@@ -48,8 +53,11 @@ repo/starship.toml     → ~/.config/starship.toml
 repo/kitty             → ~/.config/kitty
 repo/niri              → ~/.config/niri
 repo/nvim              → ~/.config/nvim
+repo/btop              → ~/.config/btop
 repo/noctalia          → ~/.config/noctalia
 repo/satty             → ~/.config/satty
+repo/codex/skills/fedora-niri
+                       → ~/.codex/skills/fedora-niri
 ```
 
 Existing configs are backed up before links are created.
@@ -173,8 +181,10 @@ starship.toml
 kitty/
 niri/
 nvim/
-noctalia/      # optional
-satty/         # optional
+btop/
+noctalia/
+satty/
+codex/skills/fedora-niri/
 ```
 
 ---
@@ -365,8 +375,38 @@ noctalia msg <command>
 Power/session menu example:
 
 ```kdl
-Mod+P { spawn-sh "noctalia msg session-toggle"; }
+Mod+P { spawn-sh "noctalia msg panel-toggle session"; }
 ```
+
+### Command center
+
+`Mod+Space` opens the custom native Noctalia panel at
+`noctalia/plugins/command-center/`. Its root contains six categories and its
+search covers installed desktop applications plus leaf actions. `Mod+D` remains
+the standard Noctalia application launcher.
+
+Keyboard controls:
+
+| Key | Action |
+| --- | --- |
+| Type | Search applications and actions |
+| `Up` / `Down` | Move the highlighted selection |
+| `Right` / `Enter` | Open the selected category or action |
+| `Alt+Left` | Return to the category root |
+| `Escape` | Close the panel |
+
+The plugin keeps UI code in `panel.luau`, exact-string command dispatch in
+`dispatch-action.sh`, and capture operations in `capture-tools.sh`. Manifest
+changes such as `capture_keys` are loaded only when the plugin starts; reload it
+with:
+
+```bash
+noctalia msg plugins disable mrbrooks/command-center
+noctalia msg plugins enable mrbrooks/command-center
+```
+
+For ordinary Noctalia configuration changes, use
+`noctalia msg config-reload` instead.
 
 Validate niri config:
 
@@ -437,24 +477,34 @@ systemctl --user status xdg-desktop-portal
 
 ## Screenshots
 
-Screenshot stack:
+The custom command center's Capture category provides:
+
+- Region, focused-window, focused-output, and all-output screenshots
+- Region annotation with Satty
+- Noctalia screen recording
+- Color picking and clipboard copy
+- OCR of a selected region to the clipboard
+- Direct access to the screenshots folder
+
+Normal screenshot actions save directly under:
+
+```text
+~/Pictures/Screenshots
+```
+
+The capture implementation uses Niri for the focused window/output and
+Grim/Slurp for regions or all outputs. Satty handles annotation, `wl-copy`
+handles clipboard output, and Tesseract handles OCR.
+
+`Mod+S` remains a lightweight region-to-Satty shortcut implemented by
+`niri/screenshot.sh`. The underlying stack is:
 
 ```text
 slurp → grim → Satty
 ```
 
-Example helper:
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-geometry="$(slurp)"
-[[ -n "$geometry" ]] || exit 0
-grim -g "$geometry" - | satty --no-window-decoration -f -
-```
-
-Install Satty with:
+Satty is installed by the normal bootstrap. To additionally enable the
+`mineiro/satty` COPR source and refresh it from there, use:
 
 ```bash
 ./bootstrap-fedora44-niri-v3.sh --with-satty-copr

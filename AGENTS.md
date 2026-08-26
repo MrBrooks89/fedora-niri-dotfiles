@@ -31,8 +31,16 @@ explicitly asks for a live-only experiment. Preserve unrelated user changes.
   `noctalia/plugins/command-center/`; `Mod+D` remains Noctalia's standard
   application launcher. The panel must preserve the six-category root, nested
   browsing, root application/action search, and safe application launching.
+- Preserve full keyboard operation in the command center: typing searches,
+  Up/Down changes the highlighted row, Right/Enter activates it, Alt+Left goes
+  back, and Escape closes the panel. Keep the selected row visibly distinct.
 - Keep screenshot, annotation, color-picker, OCR, copy/save/open, and recording
   entry points consolidated through the command-center plugin and Capture menu.
+  Normal screenshot actions save directly under `~/Pictures/Screenshots`; the
+  Annotate action opens Satty.
+- Changes to a plugin entry's manifest fields, including `capture_keys`, require
+  disabling and re-enabling that plugin. `noctalia msg config-reload` reloads
+  shell configuration but does not refresh a loaded plugin manifest.
 - Keep machine secrets and Codex authentication out of Git. Never add
   `~/.codex/auth.json`, `.env` files, API keys, or tokens.
 - Do not execute the full bootstrap merely to validate an edit; it performs

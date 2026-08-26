@@ -47,9 +47,14 @@ one of its behaviors.
   `mrbrooks/command-center:panel`, tracked under
   `noctalia/plugins/command-center/`. Keep its idle root at six categories,
   nested browsing, and direct root search across applications and leaf actions.
-- The command-center plugin's `capture-tools.sh` owns screenshots, Satty annotation, color picking,
-  OCR, save/copy/open actions, and the screenshots folder. Niri captures the
-  focused window/output; Grim and Slurp capture regions or all outputs.
+- Preserve the command center's keyboard model: typing searches, Up/Down moves
+  the visible selection, Right/Enter activates it, Alt+Left returns to the root,
+  and Escape closes the panel.
+- The command-center plugin's `dispatch-action.sh` owns exact-string action
+  dispatch. Its `capture-tools.sh` owns screenshots, Satty annotation, color
+  picking, OCR, save/copy/open actions, and the screenshots folder. Normal
+  screenshot actions save directly under `~/Pictures/Screenshots`; Niri captures
+  the focused window/output, while Grim and Slurp capture regions or all outputs.
 - Noctalia owns clipboard history, idle locking/suspend, OSD-backed hardware
   controls, screen recording, and coordinated palette resolution.
 
@@ -75,6 +80,11 @@ For monitor issues, identify connectors and logical layout from Niri before
 writing output rules. For Noctalia plugins, verify the current v5 plugin ID,
 entry ID, dependency, and source; declare bar placement under `[bar.<name>]` and
 widget type under `[widget.<name>]`.
+
+After changing plugin manifest fields such as a panel's `capture_keys`, fully
+reload that plugin with `noctalia msg plugins disable <id>` followed by
+`noctalia msg plugins enable <id>`. `noctalia msg config-reload` does not refresh
+the manifest of an already loaded plugin.
 
 When changing the command center or capture tools, preserve direct root search,
 category browsing, exact-string dispatch, and safe cancellation. Keep privileged
