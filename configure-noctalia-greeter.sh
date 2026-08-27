@@ -29,6 +29,17 @@ getent passwd "$LOGIN_USER" >/dev/null || {
 GREETER_USER="$GREETD_USER" "$OFFICIAL_SETUP"
 
 install -d -m 0750 -o "$GREETD_USER" -g "$GREETD_USER" /var/lib/noctalia-greeter
+install -d -m 0755 /etc/tmpfiles.d
+install -m 0644 /dev/stdin /etc/tmpfiles.d/noctalia-greeter.conf <<TMPFILES_CONFIG
+d /var/lib/noctalia-greeter 0750 $GREETD_USER $GREETD_USER -
+TMPFILES_CONFIG
+
+# Preserve mutable greeter state while repairing ownership from older installs.
+if [[ -f /var/lib/noctalia-greeter/sync.toml ]]; then
+    chown "$GREETD_USER:$GREETD_USER" /var/lib/noctalia-greeter/sync.toml
+    chmod 0640 /var/lib/noctalia-greeter/sync.toml
+fi
+
 rendered_config="$(mktemp)"
 trap 'rm -f -- "$rendered_config"' EXIT
 sed "/^\[user\]$/,/^\[/ s/^default = \"[^\"]*\"/default = \"$LOGIN_USER\"/" \
