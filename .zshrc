@@ -49,6 +49,15 @@ export PATH="$HOME/.local/bin:$PATH"
 if [[ -o interactive ]] && [[ -x "$HOME/.local/bin/notify-command-failure" ]]; then
   autoload -Uz add-zsh-hook
   typeset -g _diagnostic_last_command=''
+  typeset -gA _diagnostic_ignored_commands=(
+    cd 1
+    ls 1
+    pwd 1
+    pushd 1
+    popd 1
+    ping 1
+    dig 1
+  )
 
   _capture_command_for_diagnosis() {
     _diagnostic_last_command="$1"
@@ -57,8 +66,13 @@ if [[ -o interactive ]] && [[ -x "$HOME/.local/bin/notify-command-failure" ]]; t
   _notify_failed_command_for_diagnosis() {
     local exit_status=$?
     local failed_command="$_diagnostic_last_command"
+    local -a command_words
+    command_words=(${(z)failed_command})
+    local command_name="${command_words[1]:t}"
 
-    if (( exit_status != 0 && exit_status != 130 )) && [[ -n "$failed_command" ]]; then
+    if (( exit_status != 0 && exit_status != 130 )) \
+      && [[ -n "$failed_command" ]] \
+      && (( ! ${+_diagnostic_ignored_commands[$command_name]} )); then
       "$HOME/.local/bin/notify-command-failure" \
         --status "$exit_status" \
         --cwd "$PWD" \
