@@ -22,6 +22,7 @@ set -Eeuo pipefail
 #   ├── niri/
 #   ├── nvim/
 #   ├── btop/
+#   ├── chatgpt/
 #   ├── noctalia/              # optional
 #   ├── noctalia-greeter/
 #   ├── install-noctalia-greeter.sh
@@ -39,6 +40,7 @@ set -Eeuo pipefail
 #   ~/.config/noctalia
 #   ~/.codex/skills/fedora-niri
 #   ~/.config/satty
+#   ~/.local/share/applications/chatgpt.desktop
 #
 # Existing configs are backed up before symlinks are created.
 
@@ -291,6 +293,16 @@ sudo dnf -y install \
     polkit \
     grim slurp wl-clipboard tesseract tesseract-langpack-eng ddcutil i2c-tools \
     libreoffice
+
+echo "==> Installing ChatGPT from the official OpenAI RPM repository"
+sudo install -m 0644 \
+    "$SCRIPT_DIR/chatgpt/RPM-GPG-KEY-chatgpt" \
+    /etc/pki/rpm-gpg/RPM-GPG-KEY-chatgpt
+sudo rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-chatgpt
+sudo install -m 0644 \
+    "$SCRIPT_DIR/chatgpt/chatgpt.repo" \
+    /etc/yum.repos.d/chatgpt.repo
+sudo dnf -y install chatgpt
 
 echo "==> Enabling DDC/CI access for external monitor brightness controls"
 echo i2c-dev | sudo tee /etc/modules-load.d/i2c-dev.conf >/dev/null
@@ -612,6 +624,9 @@ backup_and_link "$DOTFILES_DIR/btop"          "$HOME/.config/btop"
 backup_and_link "$DOTFILES_DIR/noctalia"      "$HOME/.config/noctalia"
 backup_and_link "$DOTFILES_DIR/satty"         "$HOME/.config/satty"
 backup_and_link "$DOTFILES_DIR/codex/skills/fedora-niri" "$HOME/.codex/skills/fedora-niri"
+backup_and_link "$DOTFILES_DIR/chatgpt/chatgpt.desktop" "$HOME/.local/share/applications/chatgpt.desktop"
+
+update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
 if [[ -d "$BACKUP_DIR" ]]; then
     echo "    previous configs saved under: $BACKUP_DIR"
@@ -791,6 +806,7 @@ echo
 echo "Installed/handled:"
 echo "  niri + Noctalia"
 echo "  Kitty + Firefox + Dolphin"
+echo "  ChatGPT (native Wayland launcher + Mod+G shortcut)"
 echo "  Joplin"
 echo "  Neovim + eza + Starship"
 echo "  JetBrains Mono"
@@ -812,7 +828,7 @@ echo "Verification:"
 echo "  ls -l ~/.config/niri ~/.config/kitty ~/.config/nvim ~/.zshrc"
 echo "  niri validate"
 echo "  nmcli device status"
-echo "  command -v niri noctalia kitty dolphin teams-for-linux nvim eza starship"
+echo "  command -v niri noctalia kitty dolphin chatgpt teams-for-linux nvim eza starship"
 if [[ "$CONFIGURE_GITHUB" -eq 1 ]]; then
     echo "  command -v gh && gh auth status --hostname github.com"
 fi

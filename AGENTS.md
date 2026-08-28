@@ -15,10 +15,13 @@ Noctalia Greeter handling login.
   copy whenever its wallpaper-derived palette changes.
 - `bootstrap-fedora44-niri-v3.sh` installs packages and creates those links.
 - `codex/skills/fedora-niri/` is linked to `~/.codex/skills/fedora-niri`.
+- `chatgpt/chatgpt.desktop` is linked to
+  `~/.local/share/applications/chatgpt.desktop`; the same directory tracks the
+  official OpenAI RPM repository definition and signing key used by bootstrap.
 - `noctalia-greeter/greeter.toml` is installed into the protected greeter state
   directory by `configure-noctalia-greeter.sh`; it is not symlinked.
 - `diagnostics/` owns the opt-in local failure collector, local Codex runner,
-  prompt, and user timer.
+  prompts, user timer, and click-to-diagnose command-failure workflow.
 
 Edit the tracked source files, not the linked destinations, unless the user
 explicitly asks for a live-only experiment. Preserve unrelated user changes.
@@ -27,6 +30,8 @@ explicitly asks for a live-only experiment. Preserve unrelated user changes.
 
 - Keep the normal desktop native Wayland. Do not solve application problems by
   forcing XWayland unless the user explicitly requests it.
+- Keep the ChatGPT menu entry and `Mod+G` shortcut aligned on
+  `chatgpt --ozone-platform=wayland`.
 - Use Niri KDL syntax and Noctalia v5 TOML. Do not copy Hyprland or Noctalia v4
   settings into these files.
 - Noctalia's tracked TOML is the declarative base. Remember that
@@ -74,6 +79,10 @@ explicitly asks for a live-only experiment. Preserve unrelated user changes.
   bootstrap, or change the live workstation. Derive the target repository from
   Git's `origin`; only enable uploads when that repository belongs to the GitHub
   account authenticated with `gh`.
+- A failed interactive command may offer a notification action, but Codex must
+  not run until the user clicks it. Command misuse and machine-local problems
+  produce local advice only. A pull request is allowed only when the isolated
+  agent changes tracked dotfiles for a durable repository-owned defect.
 - Do not execute the full bootstrap merely to validate an edit; it performs
   package, service, shell, and desktop changes.
 
@@ -87,6 +96,8 @@ bash -n install-noctalia-greeter.sh
 bash -n configure-noctalia-greeter.sh
 bash -n diagnostics/collect-incident.sh
 bash -n diagnostics/run-local-codex.sh
+bash -n diagnostics/notify-command-failure.sh
+bash -n diagnostics/run-click-diagnosis.sh
 bash -n diagnostics/sanitize-report.sh
 bash -n diagnostics/install.sh
 bash -n noctalia/plugins/command-center/dispatch-action.sh

@@ -21,6 +21,7 @@ configuration:
 | Neovim | `nvim/` | `~/.config/nvim/` |
 | btop | `btop/` | `~/.config/btop/` |
 | Shell | `.zshrc`, `starship.toml` | linked `~/.zshrc`; copied `~/.config/starship.toml` |
+| ChatGPT | `chatgpt/` | RPM repo/key installed system-wide; launcher linked under `~/.local/share/applications/` |
 | Greeter | `noctalia-greeter/greeter.toml` | `/var/lib/noctalia-greeter/greeter.toml` (installed, not linked) |
 | Diagnostics | `diagnostics/` | `~/.local/bin/diagnose-workstation`, local Codex runner, and user systemd units |
 
@@ -33,6 +34,9 @@ one of its behaviors.
 
 - Keep applications native Wayland unless the user explicitly chooses an
   XWayland workaround.
+- Keep the ChatGPT desktop entry and `Mod+G` binding aligned on
+  `chatgpt --ozone-platform=wayland`; bootstrap installs ChatGPT through the
+  tracked official OpenAI RPM repository definition and signing key.
 - Use current Niri KDL and Noctalia v5 TOML. Treat old Noctalia Shell v4 QML,
   JSON, and Home Manager options as migration inputs, not valid v5 settings.
 - Check `~/.local/state/noctalia/settings.toml` when a tracked Noctalia setting

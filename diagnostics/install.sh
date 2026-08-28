@@ -19,6 +19,14 @@ command -v codex >/dev/null || {
     echo "ERROR: Install Codex first, then sign in with ChatGPT: codex login" >&2
     exit 1
 }
+command -v notify-send >/dev/null || {
+    echo "ERROR: Install libnotify first: sudo dnf install libnotify" >&2
+    exit 1
+}
+command -v kitty >/dev/null || {
+    echo "ERROR: Install Kitty first: sudo dnf install kitty" >&2
+    exit 1
+}
 codex login status 2>&1 | grep -q '^Logged in using ChatGPT$' || {
     echo "ERROR: Authenticate Codex with ChatGPT first: codex login" >&2
     exit 1
@@ -40,6 +48,8 @@ fi
 mkdir -p "$unit_dir" "$HOME/.local/bin"
 ln -sfn "$script_dir/collect-incident.sh" "$HOME/.local/bin/diagnose-workstation"
 ln -sfn "$script_dir/run-local-codex.sh" "$HOME/.local/bin/diagnose-workstation-with-codex"
+ln -sfn "$script_dir/notify-command-failure.sh" "$HOME/.local/bin/notify-command-failure"
+ln -sfn "$script_dir/run-click-diagnosis.sh" "$HOME/.local/bin/diagnose-command-with-codex"
 ln -sfn "$script_dir/systemd/fedora-niri-diagnostics.service" \
     "$unit_dir/fedora-niri-diagnostics.service"
 ln -sfn "$script_dir/systemd/fedora-niri-diagnostics.timer" \
@@ -51,3 +61,4 @@ systemctl --user enable --now fedora-niri-diagnostics.timer
 echo "Automatic diagnostics enabled."
 echo "Test locally: diagnose-workstation --dry-run --force"
 echo "Timer status: systemctl --user status fedora-niri-diagnostics.timer"
+echo "Failed interactive commands will offer click-to-diagnose in new Zsh sessions."

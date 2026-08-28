@@ -29,6 +29,10 @@ fedora-niri-dotfiles/
 ├── btop/
 ├── codex/
 │   └── skills/fedora-niri/
+├── chatgpt/
+│   ├── RPM-GPG-KEY-chatgpt
+│   ├── chatgpt.desktop
+│   └── chatgpt.repo
 ├── kitty/
 ├── niri/
 │   ├── config.kdl
@@ -62,6 +66,8 @@ repo/noctalia          → ~/.config/noctalia
 repo/satty             → ~/.config/satty
 repo/codex/skills/fedora-niri
                        → ~/.codex/skills/fedora-niri
+repo/chatgpt/chatgpt.desktop
+                       → ~/.local/share/applications/chatgpt.desktop
 ```
 
 Existing configs are backed up before links are created.
@@ -250,6 +256,7 @@ Noctalia
 Kitty
 Firefox
 Joplin
+ChatGPT
 PipeWire
 WirePlumber
 polkit
@@ -268,6 +275,11 @@ sudo dnf -y install dnf-plugins-core
 sudo dnf -y copr enable taw/joplin
 sudo dnf -y install joplin
 ```
+
+ChatGPT is installed by default from OpenAI's signed Linux RPM repository. The
+bootstrap installs the tracked `Codex Linux Repository` public key and repository
+definition before installing the latest available `chatgpt` package. The RPM
+repository remains enabled so normal Fedora updates can update ChatGPT.
 
 Login stack:
 
@@ -463,6 +475,7 @@ launcher shortcuts open Noctalia's focused utility providers directly:
 
 - `Mod+D` opens the calculator (`/calc`).
 - `Mod+Shift+D` opens the emoji picker (`/emo`).
+- `Mod+G` launches ChatGPT using native Wayland.
 
 Keyboard controls:
 
@@ -491,6 +504,26 @@ Validate niri config:
 
 ```bash
 niri validate
+```
+
+### ChatGPT desktop
+
+The bootstrap installs the official OpenAI `chatgpt` RPM and links the tracked
+desktop entry to `~/.local/share/applications/chatgpt.desktop`. Both that menu
+entry and the `Mod+G` Niri shortcut launch:
+
+```bash
+chatgpt --ozone-platform=wayland
+```
+
+This keeps ChatGPT native to Wayland while leaving the RPM-owned desktop entry
+under `/usr/share/applications` untouched. The user entry takes precedence and
+is not overwritten by package updates. If ChatGPT was installed after the
+command center had already indexed applications, reload that plugin once:
+
+```bash
+noctalia msg plugins disable mrbrooks/command-center
+noctalia msg plugins enable mrbrooks/command-center
 ```
 
 ---
@@ -701,6 +734,25 @@ journalctl --user -u fedora-niri-diagnostics.service
 
 The collector deliberately avoids environment dumps, command history,
 clipboard contents, arbitrary home-directory files, and full coredump memory.
+
+Interactive Zsh sessions also provide an opt-in, click-to-diagnose path. After
+a command exits unsuccessfully, a desktop notification offers **Diagnose with
+AI**. Nothing is sent to Codex until that action is clicked. The helper records
+only the failed command, exit status, working directory, and—for npm failures—a
+recent bounded npm debug-log tail; it sanitizes the report before saving it.
+
+The click action opens a local Kitty window and runs Codex in an isolated
+dotfiles worktree. Command mistakes and machine-local failures produce advice
+only. If Codex instead finds a durable defect in tracked Fedora Niri
+configuration, the wrapper may push the isolated change and open a PR for
+review; it never merges or applies that change to the live workstation.
+
+Open a new terminal after installation to load the Zsh hook. A simple local
+notification test is:
+
+```bash
+false
+```
 
 ## Docker + containerlab
 
