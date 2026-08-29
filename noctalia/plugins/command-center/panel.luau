@@ -13,6 +13,8 @@ local scrollGeneration = 0
 local scrollToBottomRevision = 0
 local scrollAtBottom = false
 local TOP_VIEW_LAST_INDEX = 5
+local KEYBOARD_CONTEXT_ROWS = 5
+local keyboardContextVisible = false
 
 local categories = {
     { id = "applications", title = "Applications", subtitle = "Installed desktop applications", glyph = "apps" },
@@ -139,6 +141,7 @@ local render
 
 local function resetScrollToTop()
     scrollAtBottom = false
+    keyboardContextVisible = false
     scrollGeneration += 1
 end
 
@@ -146,6 +149,7 @@ local function followSelection(itemCount)
     if itemCount == 0 or selectedIndex <= TOP_VIEW_LAST_INDEX then
         if scrollAtBottom then resetScrollToTop() end
     else
+        keyboardContextVisible = selectedIndex <= itemCount - TOP_VIEW_LAST_INDEX
         scrollAtBottom = true
         scrollToBottomRevision += 1
     end
@@ -180,7 +184,7 @@ local function activateItem(item)
     elseif item.id ~= nil then openCategory(item) end
 end
 
-local function resultRow(item, selected)
+local function resultRow(item, selected, keyPrefix)
     local isApplication = item.path ~= nil
     local subtitle = item.subtitle or ""
     if query ~= "" then
@@ -213,7 +217,7 @@ local function resultRow(item, selected)
     end
 
     return ui.row({
-        key = (isApplication and "app-" or "action-") .. item.id,
+        key = (keyPrefix or "") .. (isApplication and "app-" or "action-") .. item.id,
         height = 54,
         paddingH = 12,
         gap = 12,
@@ -337,7 +341,24 @@ render = function()
         })
     else
         for index, item in ipairs(items) do
-            rows[#rows + 1] = (item.dispatch ~= nil or item.path ~= nil) and resultRow(item, index == selectedIndex) or categoryRow(item, index == selectedIndex)
+            local selected = not keyboardContextVisible and index == selectedIndex
+            rows[#rows + 1] = (item.dispatch ~= nil or item.path ~= nil) and resultRow(item, selected) or categoryRow(item, selected)
+        end
+
+        if keyboardContextVisible then
+            rows[#rows + 1] = ui.row({ key = "keyboard-context-heading", height = 28, align = "center", gap = 9, paddingH = 4 }, {
+                ui.separator({ flexGrow = 1 }),
+                ui.label({ text = "Keyboard selection", fontSize = 10, color = "on_surface_variant" }),
+                ui.separator({ flexGrow = 1 }),
+            })
+
+            local firstContextIndex = math.max(1, selectedIndex - KEYBOARD_CONTEXT_ROWS + 1)
+            for index = firstContextIndex, selectedIndex do
+                local item = items[index]
+                rows[#rows + 1] = (item.dispatch ~= nil or item.path ~= nil)
+                    and resultRow(item, index == selectedIndex, "keyboard-context-")
+                    or categoryRow(item, index == selectedIndex)
+            end
         end
     end
 
