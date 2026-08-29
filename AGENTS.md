@@ -14,7 +14,8 @@ Noctalia Greeter handling login.
   seed copied to `~/.config/starship.toml`, because Noctalia rewrites the live
   copy whenever its wallpaper-derived palette changes.
 - `bootstrap-fedora44-niri-v3.sh` installs packages and creates those links.
-- `codex/skills/fedora-niri/` is linked to `~/.codex/skills/fedora-niri`.
+- Each directory under `codex/skills/` is linked to the matching directory under
+  `~/.codex/skills/`.
 - `chatgpt/chatgpt.desktop` is linked to
   `~/.local/share/applications/chatgpt.desktop`; the same directory tracks the
   official OpenAI RPM repository definition and signing key used by bootstrap.

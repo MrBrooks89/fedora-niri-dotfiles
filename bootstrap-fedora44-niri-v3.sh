@@ -27,7 +27,7 @@ set -Eeuo pipefail
 #   ├── noctalia-greeter/
 #   ├── install-noctalia-greeter.sh
 #   ├── configure-noctalia-greeter.sh
-#   ├── codex/skills/fedora-niri/
+#   ├── codex/skills/
 #   └── satty/                 # optional
 #
 # Symlink targets:
@@ -38,7 +38,7 @@ set -Eeuo pipefail
 #   ~/.config/nvim
 #   ~/.config/btop
 #   ~/.config/noctalia
-#   ~/.codex/skills/fedora-niri
+#   ~/.codex/skills/<tracked-skill>
 #   ~/.config/satty
 #   ~/.local/share/applications/chatgpt.desktop
 #
@@ -639,7 +639,10 @@ backup_and_link "$DOTFILES_DIR/nvim"          "$HOME/.config/nvim"
 backup_and_link "$DOTFILES_DIR/btop"          "$HOME/.config/btop"
 backup_and_link "$DOTFILES_DIR/noctalia"      "$HOME/.config/noctalia"
 backup_and_link "$DOTFILES_DIR/satty"         "$HOME/.config/satty"
-backup_and_link "$DOTFILES_DIR/codex/skills/fedora-niri" "$HOME/.codex/skills/fedora-niri"
+for skill_dir in "$DOTFILES_DIR"/codex/skills/*; do
+    [[ -d "$skill_dir" ]] || continue
+    backup_and_link "$skill_dir" "$HOME/.codex/skills/$(basename "$skill_dir")"
+done
 backup_and_link "$DOTFILES_DIR/chatgpt/chatgpt.desktop" "$HOME/.local/share/applications/chatgpt.desktop"
 
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true

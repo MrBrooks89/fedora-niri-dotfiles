@@ -28,7 +28,7 @@ Expected layout:
 fedora-niri-dotfiles/
 ├── btop/
 ├── codex/
-│   └── skills/fedora-niri/
+│   └── skills/
 ├── chatgpt/
 │   ├── RPM-GPG-KEY-chatgpt
 │   ├── chatgpt.desktop
@@ -64,8 +64,7 @@ repo/nvim              → ~/.config/nvim
 repo/btop              → ~/.config/btop
 repo/noctalia          → ~/.config/noctalia
 repo/satty             → ~/.config/satty
-repo/codex/skills/fedora-niri
-                       → ~/.codex/skills/fedora-niri
+repo/codex/skills/*    → ~/.codex/skills/<skill-name>
 repo/chatgpt/chatgpt.desktop
                        → ~/.local/share/applications/chatgpt.desktop
 ```
@@ -218,7 +217,7 @@ nvim/
 btop/
 noctalia/
 satty/
-codex/skills/fedora-niri/
+codex/skills/
 ```
 
 ---
@@ -696,12 +695,17 @@ Its default refresh interval is 60 seconds.
 The repository includes two instruction layers for Codex:
 
 - `AGENTS.md` describes repository conventions and validation commands.
-- `codex/skills/fedora-niri/SKILL.md` provides reusable Fedora/Niri/Noctalia
-  desktop guidance.
+- `codex/skills/fedora-niri/` provides general Fedora/Niri/Noctalia guidance.
+- `codex/skills/fedora-dotfiles-validator/` performs read-only pre-commit and
+  pre-PR validation.
+- `codex/skills/noctalia-command-center-qa/` reviews the command center,
+  keyboard navigation, application launching, and capture workflows.
+- `codex/skills/fedora-bootstrap-auditor/` audits bootstrap safety, portability,
+  package coverage, and repeatability without running installation.
 
-The bootstrap links the skill to `~/.codex/skills/fedora-niri`. Restart Codex
-after the first installation so it discovers the new skill. Authentication and
-session data remain in `~/.codex` and are intentionally not tracked.
+The bootstrap links every tracked skill into `~/.codex/skills/`. Restart Codex
+after the first installation so it discovers them. Authentication and session
+data remain in `~/.codex` and are intentionally not tracked.
 
 ### Automated workstation diagnostics
 
