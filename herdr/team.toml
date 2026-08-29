@@ -1,0 +1,22 @@
+schema_version = 1
+workflow_version = "1.0.0"
+session = "fedora-niri-dotfiles"
+workspace = "Dotfiles Team"
+agent_kind = "codex"
+max_agents_per_tab = 4
+
+[[tabs]]
+label = "Build"
+roles = ["coordinator", "implementation", "integration"]
+
+[[tabs]]
+label = "Review"
+roles = ["validation", "security", "release"]
+
+[prompts]
+coordinator = "prompts/coordinator.md"
+implementation = "prompts/implementation.md"
+integration = "prompts/integration.md"
+validation = "prompts/validation.md"
+security = "prompts/security.md"
+release = "prompts/release.md"
