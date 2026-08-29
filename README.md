@@ -76,8 +76,9 @@ repo/chatgpt/chatgpt.desktop
 Existing configs are backed up before links are created.
 
 The bootstrap also links `reminders/fedora-reminder` into `~/.local/bin`. The
-CLI uses persistent systemd user timers for countdown reminders and sends their
-expiry through the graphical session's notification service:
+CLI uses persistent systemd user timers for countdown reminders. Expiry plays
+the Freedesktop alarm sound through `canberra-gtk-play` and sends a graphical
+notification; if audio is unavailable, the visual reminder still succeeds:
 
 ```bash
 fedora-reminder add 10m "Check the oven"
@@ -85,6 +86,9 @@ fedora-reminder list
 fedora-reminder cancel REMINDER_ID
 fedora-reminder clear
 ```
+
+Bootstrap installs `libnotify`, `libcanberra-gtk3`, and
+`sound-theme-freedesktop` for visual and audible delivery.
 
 Starship is the exception to the symlink model: its tracked file is an
 installation seed. The bootstrap copies it to `~/.config/starship.toml` so

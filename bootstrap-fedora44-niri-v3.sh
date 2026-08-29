@@ -303,6 +303,7 @@ fi
 echo "==> Installing niri/Noctalia desktop components"
 sudo dnf -y install \
     niri noctalia kitty firefox dolphin libnotify \
+    libcanberra-gtk3 sound-theme-freedesktop \
     pipewire wireplumber \
     xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-kde \
     xdg-user-dirs \

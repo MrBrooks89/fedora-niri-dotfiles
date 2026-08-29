@@ -11,6 +11,13 @@ command -v notify-send >/dev/null 2>&1 || {
     echo "ERROR: Install libnotify first: sudo dnf install libnotify" >&2
     exit 1
 }
+if ! command -v canberra-gtk-play >/dev/null 2>&1; then
+    echo "WARNING: Audible reminders are unavailable." >&2
+    echo "         Install them with: sudo dnf install libcanberra-gtk3 sound-theme-freedesktop" >&2
+elif command -v rpm >/dev/null 2>&1 && ! rpm -q sound-theme-freedesktop >/dev/null 2>&1; then
+    echo "WARNING: The Freedesktop sound theme is missing; reminders will remain visual." >&2
+    echo "         Install it with: sudo dnf install sound-theme-freedesktop" >&2
+fi
 
 mkdir -p "$HOME/.local/bin"
 ln -sfn "$script_dir/fedora-reminder" "$HOME/.local/bin/fedora-reminder"

@@ -15,13 +15,19 @@ cat >"$fake_bin/notify-send" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$REMINDER_TEST_NOTIFY"
 EOF
-chmod +x "$fake_bin/systemctl" "$fake_bin/notify-send"
+cat >"$fake_bin/canberra-gtk-play" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$REMINDER_TEST_AUDIO"
+exit "${REMINDER_TEST_AUDIO_EXIT:-0}"
+EOF
+chmod +x "$fake_bin/systemctl" "$fake_bin/notify-send" "$fake_bin/canberra-gtk-play"
 
 export HOME="$test_dir/home"
 export XDG_STATE_HOME="$test_dir/state"
 export XDG_CONFIG_HOME="$test_dir/config"
 export REMINDER_TEST_CALLS="$calls"
 export REMINDER_TEST_NOTIFY="$test_dir/notify.calls"
+export REMINDER_TEST_AUDIO="$test_dir/audio.calls"
 export PATH="$fake_bin:/usr/bin:/bin"
 
 reminder="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)/fedora-reminder"
@@ -46,8 +52,22 @@ grep -Fq 'Test the reminder' "$test_dir/list.out"
 
 "$reminder" deliver "$id"
 grep -Fq 'Reminder Test the reminder' "$REMINDER_TEST_NOTIFY"
+grep -Fq -- '--id=alarm-clock-elapsed --description=Fedora reminder' "$REMINDER_TEST_AUDIO"
 [[ ! -e "$XDG_STATE_HOME/fedora-reminders/$id" ]]
 [[ ! -e "$XDG_CONFIG_HOME/systemd/user/fedora-reminder-$id.timer" ]]
+
+"$reminder" add 2m "Audio failure fallback" >"$test_dir/audio-failure.out"
+audio_failure="$(sed -n 's/^Created reminder \([^ ]*\) .*/\1/p' "$test_dir/audio-failure.out")"
+REMINDER_TEST_AUDIO_EXIT=1 "$reminder" deliver "$audio_failure"
+grep -Fq 'Reminder Audio failure fallback' "$REMINDER_TEST_NOTIFY"
+[[ ! -e "$XDG_STATE_HOME/fedora-reminders/$audio_failure" ]]
+
+"$reminder" add 2m "Audio absence fallback" >"$test_dir/audio-absence.out"
+audio_absence="$(sed -n 's/^Created reminder \([^ ]*\) .*/\1/p' "$test_dir/audio-absence.out")"
+mv "$fake_bin/canberra-gtk-play" "$test_dir/canberra-gtk-play.disabled"
+"$reminder" deliver "$audio_absence"
+grep -Fq 'Reminder Audio absence fallback' "$REMINDER_TEST_NOTIFY"
+[[ ! -e "$XDG_STATE_HOME/fedora-reminders/$audio_absence" ]]
 
 "$reminder" add 5m "First" >"$test_dir/first.out"
 first="$(sed -n 's/^Created reminder \([^ ]*\) .*/\1/p' "$test_dir/first.out")"
