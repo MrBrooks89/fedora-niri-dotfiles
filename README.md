@@ -626,13 +626,41 @@ repositories. Enable that optional source and install Satty with:
 
 ---
 
-## Steam
+## Gaming
 
-Steam:
-Enables the rpmfusion Nonfree repository and installs steam
+The optional gaming bundle enables RPM Fusion and installs:
+
+- Steam and its controller udev rules
+- ProtonUp-rs in `~/.local/bin`
+- Heroic Games Launcher from Flathub
+- GameMode, Gamescope, and MangoHud
+- USB and Bluetooth Xbox controller support through the kernel `xpad`/`uhid`
+  modules, BlueZ tools, and Fedora's joystick support package
 
 ```bash
-./bootstrap-fedora44-niri-v3.sh --with-steam
+./bootstrap-fedora44-niri-v3.sh --with-gaming
+```
+
+USB controllers should be detected automatically after connecting the cable.
+To pair an Xbox controller over Bluetooth, hold its pairing button until the
+Xbox light flashes rapidly, then run:
+
+```bash
+bluetoothctl
+power on
+agent on
+default-agent
+scan on
+```
+
+After the controller appears, use its reported MAC address:
+
+```text
+scan off
+pair XX:XX:XX:XX:XX:XX
+trust XX:XX:XX:XX:XX:XX
+connect XX:XX:XX:XX:XX:XX
+quit
 ```
 
 ## OpenAI Codex + usage widget
