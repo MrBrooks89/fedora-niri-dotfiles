@@ -95,7 +95,7 @@ capsule_border = "outline"
 
 start = ["cpu", "media"]
 center = ["workspaces"]
-end = ["tray", "codexbar", "volume", "network", "battery", "clock", "control-center"]
+end = ["tray", "codexbar", "volume", "network", "battery", "clock", "notification"]
 
 [widget.cpu]
 type = "sysmon"
@@ -130,6 +130,9 @@ type = "clock"
 
 [widget.control-center]
 type = "control-center"
+
+[widget.notification]
+type = "notification"
 
 [control_center]
 show_shortcut_labels = true
