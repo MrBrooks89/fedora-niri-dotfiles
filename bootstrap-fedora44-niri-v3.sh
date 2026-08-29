@@ -54,8 +54,7 @@ WITH_DOCKER=0
 WITH_CONTAINERLAB=0
 WITH_SATTY_COPR=0
 WITH_NERD_FONT=0
-WITH_PROTONUP_RS=0
-WITH_STEAM=0
+WITH_GAMING=0
 WITH_CODEX=0
 WITH_AUTO_DIAGNOSTICS=0
 CONFIGURE_GITHUB=0
@@ -81,8 +80,8 @@ Options:
   --with-satty-copr        Enable mineiro/satty COPR and install Satty
   --with-docker            Install Docker CE and add current user to docker
   --with-containerlab      Install containerlab and add current user to clab_admins
-  --with-protonup-rs       Install Protonup-rs into ~/.local/bin
-  --with-steam             Install Steam
+  --with-gaming            Install Steam, ProtonUp-rs, Heroic, gaming tools,
+                           and USB/Bluetooth Xbox controller support
   --with-codex             Install Codex CLI and CodexBar usage helper
   --with-auto-diagnostics  Enable local Codex crash diagnosis and PR proposals
                            (requires --with-codex and --configure-github)
@@ -123,8 +122,7 @@ while [[ $# -gt 0 ]]; do
         --with-containerlab) WITH_CONTAINERLAB=1 ;;
         --with-satty-copr)   WITH_SATTY_COPR=1 ;;
         --with-nerd-font)    WITH_NERD_FONT=1 ;;
-        --with-protonup-rs) WITH_PROTONUP_RS=1 ;;
-        --with-steam)       WITH_STEAM=1 ;;
+        --with-gaming)      WITH_GAMING=1 ;;
         --with-codex)       WITH_CODEX=1 ;;
         --with-auto-diagnostics) WITH_AUTO_DIAGNOSTICS=1 ;;
         --configure-github) CONFIGURE_GITHUB=1 ;;
@@ -134,8 +132,7 @@ while [[ $# -gt 0 ]]; do
             WITH_CONTAINERLAB=1
             WITH_SATTY_COPR=1
             WITH_NERD_FONT=1
-            WITH_PROTONUP_RS=1
-            WITH_STEAM=1
+            WITH_GAMING=1
             WITH_CODEX=1
             CONFIGURE_GITHUB=1
             CONFIGURE_NETWORK=1
@@ -426,7 +423,7 @@ else
     echo "      Use --with-nerd-font if your prompt/icons need Nerd Font glyphs."
 fi
 
-if [[ "$WITH_PROTONUP_RS" -eq 1 ]]; then
+if [[ "$WITH_GAMING" -eq 1 ]]; then
     echo "==> Installing ProtonUp-rs"
 
     case "$(uname -m)" in
@@ -462,7 +459,7 @@ if [[ "$WITH_PROTONUP_RS" -eq 1 ]]; then
 
     echo "    Installed: $HOME/.local/bin/protonup-rs"
 else
-    echo "NOTE: ProtonUp-rs not installed. Use --with-protonup-rs if needed."
+    echo "NOTE: Gaming software not installed. Use --with-gaming if needed."
 fi
 
 if [[ "$WITH_CODEX" -eq 1 ]]; then
@@ -723,14 +720,34 @@ else
     echo "NOTE: Satty not installed. Use --with-satty-copr if needed."
 fi
 
-if [[ "$WITH_STEAM" -eq 1 ]]; then
-    echo "==> Installing Steam From rpmfusion NonFree"
+if [[ "$WITH_GAMING" -eq 1 ]]; then
+    echo "==> Installing Steam and gaming support from RPM Fusion"
 
-    sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
+    sudo dnf install -y \
+        "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" \
+        "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
     sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1
-    sudo dnf install steam -y
-else
-    echo "NOTE: Steam not installed. Use --with-steam if needed." 
+    sudo dnf install -y \
+        steam \
+        steam-devices \
+        gamemode \
+        gamescope \
+        mangohud \
+        flatpak \
+        bluez \
+        bluez-tools \
+        joystick-support
+
+    echo "==> Installing Heroic Games Launcher from Flathub"
+    flatpak remote-add --user --if-not-exists \
+        flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    flatpak install --user -y flathub com.heroicgameslauncher.hgl
+
+    echo "==> Enabling USB and Bluetooth Xbox controller support"
+    sudo systemctl enable --now bluetooth
+    printf '%s\n' xpad uhid | sudo tee /etc/modules-load.d/gaming-controllers.conf >/dev/null
+    sudo modprobe xpad
+    sudo modprobe uhid
 fi
 
 if [[ "$WITH_DOCKER" -eq 1 ]]; then
