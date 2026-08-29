@@ -60,6 +60,7 @@ WITH_CODEX=0
 WITH_AUTO_DIAGNOSTICS=0
 CONFIGURE_GITHUB=0
 CONFIGURE_NETWORK=0
+GROUP_MEMBERSHIP_CHANGED=0
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_REPO=""
@@ -177,6 +178,24 @@ if [[ -z "$INSTALL_HOME" || "$INSTALL_HOME" != "$HOME" ]]; then
 fi
 
 echo "==> Installing for $INSTALL_USER (uid $INSTALL_UID, home $INSTALL_HOME)"
+
+ensure_install_user_group() {
+    local group_name="$1"
+
+    if ! getent group "$group_name" >/dev/null; then
+        sudo groupadd "$group_name"
+    fi
+
+    if ! id -nG "$INSTALL_USER" | grep -qw -- "$group_name"; then
+        sudo usermod -aG "$group_name" "$INSTALL_USER"
+        GROUP_MEMBERSHIP_CHANGED=1
+    fi
+
+    if ! id -nG "$INSTALL_USER" | grep -qw -- "$group_name"; then
+        echo "ERROR: Failed to add $INSTALL_USER to the $group_name group." >&2
+        exit 1
+    fi
+}
 
 if [[ ! -r /etc/fedora-release ]]; then
     echo "This script is intended for Fedora." >&2
@@ -731,8 +750,8 @@ if [[ "$WITH_DOCKER" -eq 1 ]]; then
         docker-buildx-plugin \
         docker-compose-plugin
 
+    ensure_install_user_group docker
     sudo systemctl enable --now docker
-    sudo usermod -aG docker "$USER"
 fi
 
 if [[ "$WITH_CONTAINERLAB" -eq 1 ]]; then
@@ -740,14 +759,10 @@ if [[ "$WITH_CONTAINERLAB" -eq 1 ]]; then
 
     bash -c "$(curl -sL https://get.containerlab.dev)"
 
-    if ! getent group clab_admins >/dev/null; then
-        sudo groupadd clab_admins
-    fi
-
-    sudo usermod -aG clab_admins "$USER"
+    ensure_install_user_group clab_admins
 
     if getent group docker >/dev/null; then
-        sudo usermod -aG docker "$USER"
+        ensure_install_user_group docker
     fi
 fi
 
@@ -820,7 +835,10 @@ if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 ]]; then
 fi
 echo
 echo "Important:"
-echo "  If Docker/containerlab groups were changed, completely log out/in."
+if [[ "$GROUP_MEMBERSHIP_CHANGED" -eq 1 ]]; then
+    echo "  Docker/containerlab permissions were configured for $INSTALL_USER."
+    echo "  Completely log out and back in once to activate the new groups."
+fi
 echo "  Reboot when ready:"
 echo "      sudo reboot"
 echo

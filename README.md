@@ -762,13 +762,17 @@ Docker:
 ./bootstrap-fedora44-niri-v3.sh --with-docker
 ```
 
+The bootstrap creates the `docker` group if needed and adds the installing
+user to it automatically. If that membership is new, log out and back in once
+before running Docker without `sudo`.
+
 Containerlab:
 
 ```bash
 ./bootstrap-fedora44-niri-v3.sh --with-containerlab
 ```
 
-Containerlab tooling may require membership in:
+The bootstrap also configures the required group memberships automatically:
 
 ```text
 docker
