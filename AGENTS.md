@@ -26,6 +26,15 @@ Noctalia Greeter handling login.
 Edit the tracked source files, not the linked destinations, unless the user
 explicitly asks for a live-only experiment. Preserve unrelated user changes.
 
+## Repository workflow
+
+The default `main` branch is protected by an active GitHub ruleset. Never push
+changes directly to `main`, force-push it, or delete it. Start work from an
+up-to-date `main`, create a focused branch, validate and commit there, then push
+the branch and open a pull request. Resolve all PR conversations before merging.
+No approval is currently required because this is a solo-maintained repository;
+do not merge a PR on the user's behalf unless the user explicitly requests it.
+
 ## Desktop conventions
 
 - Keep the normal desktop native Wayland. Do not solve application problems by

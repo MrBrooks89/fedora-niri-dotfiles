@@ -797,21 +797,34 @@ After group changes, fully log out and back in.
 
 Because the live configs are symlinked to the Git checkout, editing the normal config path edits the repository directly.
 
+The `main` branch is protected. Update it first, then make each change on a
+focused branch and merge it through a pull request:
+
 Example:
 
 ```bash
+cd ~/.dotfiles
+git switch main
+git pull --ff-only
+git switch -c update/short-description
 nvim ~/.config/niri/config.kdl
 ```
 
-Commit changes:
+Validate, commit, push, and open the pull request:
 
 ```bash
-cd ~/.dotfiles
 git status
-git add .
+git diff
+git diff --check
+git add path/to/changed-file
 git commit -m "Update desktop configuration"
-git push
+git push --set-upstream origin update/short-description
+gh pr create
 ```
+
+Direct pushes, force pushes, and deletion of `main` are blocked. Pull request
+conversations must be resolved before merging; an approving review is not
+required while the repository has one maintainer.
 
 ---
 

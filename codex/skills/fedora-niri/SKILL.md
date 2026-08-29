@@ -30,6 +30,13 @@ and preserve unrelated work. Do not edit `/usr/share/omarchy`; Omarchy is useful
 only as a read-only design reference when the user explicitly asks to reproduce
 one of its behaviors.
 
+The repository's default `main` branch is protected. Make changes on a focused
+branch created from an up-to-date `main`, push that branch, and open a pull
+request; never push directly to `main`. The ruleset blocks deletion and force
+pushes and requires PR conversations to be resolved. It currently requires zero
+approvals for a solo maintainer. Do not merge a PR unless the user explicitly
+asks for the merge.
+
 ## Platform rules
 
 - Keep applications native Wayland unless the user explicitly chooses an
