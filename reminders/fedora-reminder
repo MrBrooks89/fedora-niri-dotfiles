@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly program="${0##*/}"
+readonly state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
+readonly config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+readonly state_dir="$state_home/fedora-reminders"
+readonly unit_dir="$config_home/systemd/user"
+
+usage() {
+    cat <<EOF
+Usage:
+  $program add DURATION MESSAGE...
+  $program list
+  $program cancel ID
+  $program clear
+
+Create and manage countdown reminders with systemd user timers.
+DURATION is a positive integer followed by s, m, h, or d (for example 30s,
+10m, 2h, or 1d). Expired reminders are delivered as desktop notifications.
+EOF
+}
+
+die() {
+    printf 'ERROR: %s\n' "$*" >&2
+    exit 1
+}
+
+require_runtime() {
+    command -v systemctl >/dev/null 2>&1 || die "systemctl is required"
+}
+
+duration_seconds() {
+    local duration="$1" amount suffix multiplier
+    [[ "$duration" =~ ^([1-9][0-9]*)([smhd])$ ]] ||
+        die "duration must look like 30s, 10m, 2h, or 1d"
+    amount="${BASH_REMATCH[1]}"
+    suffix="${BASH_REMATCH[2]}"
+    case "$suffix" in
+        s) multiplier=1 ;;
+        m) multiplier=60 ;;
+        h) multiplier=3600 ;;
+        d) multiplier=86400 ;;
+    esac
+    (( amount <= 31536000 / multiplier )) || die "duration cannot exceed 365 days"
+    printf '%s\n' "$((amount * multiplier))"
+}
+
+valid_id() {
+    [[ "$1" =~ ^[0-9]{8}T[0-9]{6}-[0-9]+-[0-9]+$ ]]
+}
+
+state_path() {
+    printf '%s/%s\n' "$state_dir" "$1"
+}
+
+timer_name() {
+    printf 'fedora-reminder-%s.timer\n' "$1"
+}
+
+service_name() {
+    printf 'fedora-reminder-%s.service\n' "$1"
+}
+
+remove_reminder() {
+    local id="$1" stop_service="${2:-yes}" timer service
+    timer="$(timer_name "$id")"
+    service="$(service_name "$id")"
+    systemctl --user stop "$timer" >/dev/null 2>&1 || true
+    if [[ "$stop_service" == "yes" ]]; then
+        systemctl --user stop "$service" >/dev/null 2>&1 || true
+    fi
+    rm -f -- "$unit_dir/$timer" "$unit_dir/$service" "$(state_path "$id")"
+    systemctl --user daemon-reload
+}
+
+add_reminder() {
+    [[ $# -ge 2 ]] || { usage >&2; exit 2; }
+    require_runtime
+    command -v notify-send >/dev/null 2>&1 || die "notify-send is required (Fedora package: libnotify)"
+
+    local duration="$1" seconds message now due id state timer service executable
+    shift
+    message="$*"
+    [[ -n "$message" ]] || die "message cannot be empty"
+    [[ "$message" != *$'\n'* && "$message" != *$'\r'* ]] || die "message must be a single line"
+    ((${#message} <= 500)) || die "message cannot exceed 500 characters"
+    seconds="$(duration_seconds "$duration")"
+    now="$(date +%s)"
+    due="$((now + seconds))"
+    id="$(date -u -d "@$due" +%Y%m%dT%H%M%S)-$$-$RANDOM"
+    state="$(state_path "$id")"
+    timer="$(timer_name "$id")"
+    service="$(service_name "$id")"
+    executable="$HOME/.local/bin/fedora-reminder"
+    [[ -x "$executable" ]] || executable="$(readlink -f -- "$0")"
+
+    mkdir -p -- "$state_dir" "$unit_dir"
+    chmod 0700 "$state_dir"
+    {
+        printf 'due=%s\n' "$due"
+        printf 'message=%s\n' "$message"
+    } >"$state"
+    chmod 0600 "$state"
+
+    cat >"$unit_dir/$service" <<EOF
+[Unit]
+Description=Deliver Fedora reminder $id
+
+[Service]
+Type=oneshot
+ExecStart="$executable" deliver $id
+EOF
+    cat >"$unit_dir/$timer" <<EOF
+[Unit]
+Description=Fedora reminder scheduled for $duration
+
+[Timer]
+OnCalendar=@$due
+AccuracySec=1s
+Persistent=true
+Unit=$service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+    if ! systemctl --user daemon-reload || ! systemctl --user start "$timer"; then
+        rm -f -- "$unit_dir/$timer" "$unit_dir/$service" "$state"
+        systemctl --user daemon-reload >/dev/null 2>&1 || true
+        die "could not start the systemd user timer"
+    fi
+    printf 'Created reminder %s for %s: %s\n' "$id" "$(date -d "@$due" '+%Y-%m-%d %H:%M:%S %Z')" "$message"
+}
+
+list_reminders() {
+    local found=0 state id due message remaining
+    printf '%-35s  %-20s  %s\n' "ID" "DUE" "MESSAGE"
+    shopt -s nullglob
+    for state in "$state_dir"/*; do
+        id="${state##*/}"
+        valid_id "$id" || continue
+        due="$(sed -n 's/^due=//p' "$state")"
+        message="$(sed -n 's/^message=//p' "$state")"
+        [[ "$due" =~ ^[0-9]+$ ]] || continue
+        remaining="$((due - $(date +%s)))"
+        ((remaining < 0)) && remaining=0
+        printf '%-35s  %-20s  %s (%ss remaining)\n' \
+            "$id" "$(date -d "@$due" '+%Y-%m-%d %H:%M:%S')" "$message" "$remaining"
+        found=1
+    done
+    ((found == 1)) || printf '%s\n' 'No active reminders.'
+}
+
+cancel_reminder() {
+    [[ $# -eq 1 ]] || { usage >&2; exit 2; }
+    require_runtime
+    valid_id "$1" || die "invalid reminder ID"
+    [[ -f "$(state_path "$1")" ]] || die "reminder not found: $1"
+    remove_reminder "$1"
+    printf 'Canceled reminder %s.\n' "$1"
+}
+
+clear_reminders() {
+    require_runtime
+    local state id count=0
+    shopt -s nullglob
+    for state in "$state_dir"/*; do
+        id="${state##*/}"
+        valid_id "$id" || continue
+        remove_reminder "$id"
+        ((count += 1))
+    done
+    printf 'Cleared %d reminder(s).\n' "$count"
+}
+
+deliver_reminder() {
+    [[ $# -eq 1 ]] || exit 2
+    valid_id "$1" || exit 2
+    local state message
+    state="$(state_path "$1")"
+    [[ -f "$state" ]] || exit 0
+    message="$(sed -n 's/^message=//p' "$state")"
+    if notify-send --app-name="Fedora Reminder" --urgency=normal "Reminder" "$message"; then
+        remove_reminder "$1" no
+    else
+        die "desktop notification delivery failed"
+    fi
+}
+
+case "${1:-}" in
+    add) shift; add_reminder "$@" ;;
+    list) shift; [[ $# -eq 0 ]] || { usage >&2; exit 2; }; list_reminders ;;
+    cancel) shift; cancel_reminder "$@" ;;
+    clear) shift; [[ $# -eq 0 ]] || { usage >&2; exit 2; }; clear_reminders ;;
+    deliver) shift; deliver_reminder "$@" ;;
+    -h|--help|help) usage ;;
+    *) usage >&2; exit 2 ;;
+esac

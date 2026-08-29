@@ -44,6 +44,9 @@ fedora-niri-dotfiles/
 ├── noctalia-greeter/
 │   ├── greeter.toml
 │   └── sync.toml
+├── reminders/
+│   ├── fedora-reminder
+│   └── install.sh
 ├── satty/
 ├── .zshrc
 ├── starship.toml
@@ -71,6 +74,17 @@ repo/chatgpt/chatgpt.desktop
 ```
 
 Existing configs are backed up before links are created.
+
+The bootstrap also links `reminders/fedora-reminder` into `~/.local/bin`. The
+CLI uses persistent systemd user timers for countdown reminders and sends their
+expiry through the graphical session's notification service:
+
+```bash
+fedora-reminder add 10m "Check the oven"
+fedora-reminder list
+fedora-reminder cancel REMINDER_ID
+fedora-reminder clear
+```
 
 Starship is the exception to the symlink model: its tracked file is an
 installation seed. The bootstrap copies it to `~/.config/starship.toml` so

@@ -2,6 +2,7 @@
 set -u
 
 capture_tools="$HOME/.config/noctalia/plugins/command-center/capture-tools.sh"
+reminder="$HOME/.local/bin/fedora-reminder"
 
 case "${1:-}" in
     "System › Control Center") noctalia msg panel-toggle control-center ;;
@@ -31,6 +32,11 @@ case "${1:-}" in
     "Tools › Edit Niri Config") kitty nvim "$HOME/.config/niri/config.kdl" ;;
     "Tools › Edit Noctalia Config") kitty nvim "$HOME/.config/noctalia/config.toml" ;;
     "Tools › Fedora Updates") kitty --hold --title "Fedora Updates" sudo dnf upgrade --refresh ;;
+    "Tools › Reminder in 5 Minutes") "$reminder" add 5m "Five-minute reminder" ;;
+    "Tools › Reminder in 15 Minutes") "$reminder" add 15m "Fifteen-minute reminder" ;;
+    "Tools › Reminder in 30 Minutes") "$reminder" add 30m "Thirty-minute reminder" ;;
+    "Tools › List Reminders") kitty --hold --title "Active Reminders" "$reminder" list ;;
+    "Tools › Clear Reminders") "$reminder" clear ;;
     "Power › Lock") noctalia msg session lock ;;
     "Power › Suspend") noctalia msg session suspend ;;
     "Power › Log Out") noctalia msg session logout ;;
