@@ -296,7 +296,9 @@ configures greetd to launch Niri. Stable appearance, authentication, and
 session defaults live in `noctalia-greeter/greeter.toml`; the login user is
 discovered and inserted into the installed copy. Noctalia's
 `greeter-sync` command owns mutable theme, wallpaper, and output state in
-`/var/lib/noctalia-greeter/sync.toml`.
+`/var/lib/noctalia-greeter/sync.toml`. The installer also places a tmpfiles
+override under `/etc/tmpfiles.d` because the upstream rule assumes a separate
+`greeter` account while this setup runs the greeter as `greetd`.
 
 To reinstall or update the pinned build:
 

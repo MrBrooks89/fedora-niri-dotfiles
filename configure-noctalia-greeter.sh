@@ -15,6 +15,7 @@ readonly OFFICIAL_SETUP="$1"
 readonly LOGIN_USER="$2"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly TRACKED_CONFIG="$SCRIPT_DIR/noctalia-greeter/greeter.toml"
+readonly TRACKED_TMPFILES="$SCRIPT_DIR/noctalia-greeter/noctalia-greeter.conf"
 readonly GREETD_USER="greetd"
 
 [[ "$LOGIN_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || {
@@ -26,9 +27,15 @@ getent passwd "$LOGIN_USER" >/dev/null || {
     exit 2
 }
 
+install -d -m 0755 /etc/tmpfiles.d
+install -m 0644 "$TRACKED_TMPFILES" /etc/tmpfiles.d/noctalia-greeter.conf
 GREETER_USER="$GREETD_USER" "$OFFICIAL_SETUP"
 
 install -d -m 0750 -o "$GREETD_USER" -g "$GREETD_USER" /var/lib/noctalia-greeter
+if [[ -e /var/lib/noctalia-greeter/sync.toml ]]; then
+    chown "$GREETD_USER:$GREETD_USER" /var/lib/noctalia-greeter/sync.toml
+    chmod 0640 /var/lib/noctalia-greeter/sync.toml
+fi
 rendered_config="$(mktemp)"
 trap 'rm -f -- "$rendered_config"' EXIT
 sed "/^\[user\]$/,/^\[/ s/^default = \"[^\"]*\"/default = \"$LOGIN_USER\"/" \
