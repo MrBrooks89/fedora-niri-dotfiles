@@ -634,6 +634,7 @@ The optional gaming bundle enables RPM Fusion and installs:
 - ProtonUp-rs in `~/.local/bin`
 - Heroic Games Launcher from Flathub
 - GameMode, Gamescope, and MangoHud
+- LACT GPU controls and its enabled `lactd` system service from `ilyaz/LACT`
 - USB and Bluetooth Xbox controller support through the kernel `xpad`/`uhid`
   modules, BlueZ tools, and Fedora's joystick support package
 
