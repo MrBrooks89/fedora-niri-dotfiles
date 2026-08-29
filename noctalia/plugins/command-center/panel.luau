@@ -56,6 +56,11 @@ local actions = {
     { id = "niri-config", category = "tools", title = "Edit Niri Config", glyph = "file-settings", dispatch = "Tools › Edit Niri Config" },
     { id = "noctalia-config", category = "tools", title = "Edit Noctalia Config", glyph = "file-settings", dispatch = "Tools › Edit Noctalia Config" },
     { id = "updates", category = "tools", title = "Fedora Updates", glyph = "refresh", dispatch = "Tools › Fedora Updates" },
+    { id = "reminder-5m", category = "tools", title = "Reminder in 5 Minutes", glyph = "clock", dispatch = "Tools › Reminder in 5 Minutes" },
+    { id = "reminder-15m", category = "tools", title = "Reminder in 15 Minutes", glyph = "clock", dispatch = "Tools › Reminder in 15 Minutes" },
+    { id = "reminder-30m", category = "tools", title = "Reminder in 30 Minutes", glyph = "clock", dispatch = "Tools › Reminder in 30 Minutes" },
+    { id = "reminders-list", category = "tools", title = "List Reminders", glyph = "list", dispatch = "Tools › List Reminders" },
+    { id = "reminders-clear", category = "tools", title = "Clear Reminders", glyph = "trash", dispatch = "Tools › Clear Reminders" },
 
     { id = "lock", category = "power", title = "Lock", glyph = "lock", dispatch = "Power › Lock" },
     { id = "suspend", category = "power", title = "Suspend", glyph = "moon", dispatch = "Power › Suspend" },

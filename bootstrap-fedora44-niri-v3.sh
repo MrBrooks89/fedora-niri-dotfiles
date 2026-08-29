@@ -302,7 +302,7 @@ fi
 
 echo "==> Installing niri/Noctalia desktop components"
 sudo dnf -y install \
-    niri noctalia kitty firefox dolphin \
+    niri noctalia kitty firefox dolphin libnotify \
     pipewire wireplumber \
     xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-kde \
     xdg-user-dirs \
@@ -644,6 +644,9 @@ for skill_dir in "$DOTFILES_DIR"/codex/skills/*; do
     backup_and_link "$skill_dir" "$HOME/.codex/skills/$(basename "$skill_dir")"
 done
 backup_and_link "$DOTFILES_DIR/chatgpt/chatgpt.desktop" "$HOME/.local/share/applications/chatgpt.desktop"
+
+echo "==> Installing Fedora reminder service"
+"$DOTFILES_DIR/reminders/install.sh"
 
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
