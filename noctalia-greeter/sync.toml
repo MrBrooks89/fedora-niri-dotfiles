@@ -1,0 +1,13 @@
+# Initial Noctalia Greeter mutable state. The login UI and `greeter-sync` may
+# replace this file after installation; configure-noctalia-greeter.sh installs
+# it only when no sync.toml exists.
+
+[[session.actions]]
+action = "shutdown"
+label = "Shut down"
+glyph = "power"
+
+[[session.actions]]
+action = "reboot"
+label = "Restart"
+glyph = "reload"
