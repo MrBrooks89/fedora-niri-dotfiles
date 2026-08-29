@@ -95,7 +95,7 @@ capsule_border = "outline"
 
 start = ["cpu", "media"]
 center = ["workspaces"]
-end = ["tray", "codexbar", "volume", "network", "battery", "clock", "notification"]
+end = ["tray", "screen-recorder", "codexbar", "volume", "network", "battery", "clock", "notification"]
 
 [widget.cpu]
 type = "sysmon"
