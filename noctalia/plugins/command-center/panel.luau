@@ -4,6 +4,7 @@ local isOpen = false
 local query = ""
 local currentCategory = nil
 local applications = {}
+local applicationIconPaths = {}
 local applicationsLoading = false
 local applicationsLoaded = false
 local inputGeneration = 0
@@ -11,7 +12,6 @@ local selectedIndex = 1
 local scrollGeneration = 0
 local scrollToBottomRevision = 0
 local scrollAtBottom = false
-local MAX_VISIBLE_RESULTS = 10
 local TOP_VIEW_LAST_INDEX = 5
 
 local categories = {
@@ -96,10 +96,7 @@ local function matchingItems()
     if trimmed == "" then
         if currentCategory == nil then return categories end
         if currentCategory == "applications" then
-            for index, application in ipairs(applications) do
-                if index > MAX_VISIBLE_RESULTS then break end
-                results[#results + 1] = application
-            end
+            for _, application in ipairs(applications) do results[#results + 1] = application end
             return results
         end
         for _, action in ipairs(actions) do
@@ -130,8 +127,7 @@ local function matchingItems()
     end)
 
     local flattened = {}
-    for index, result in ipairs(results) do
-        if index > MAX_VISIBLE_RESULTS then break end
+    for _, result in ipairs(results) do
         local item = result.value
         item.searchKind = result.kind
         flattened[#flattened + 1] = item
@@ -196,11 +192,25 @@ local function resultRow(item, selected)
         end
     end
 
-    -- Resolving icon-theme paths for every result on every keystroke is too
-    -- expensive for Noctalia's intentionally small plugin callback budget.
-    -- A consistent native glyph keeps search responsive; richer cached icons
-    -- can be added after the interaction model is settled.
-    local iconNode = ui.glyph({ name = item.glyph or "app-window", size = 22, color = "primary" })
+    local iconNode
+    if isApplication then
+        local iconPath = applicationIconPaths[item.id]
+        if iconPath == nil then
+            iconPath = noctalia.appIconPath(item.id, 30)
+            if iconPath == nil and item.icon ~= "" then iconPath = noctalia.appIconPath(item.icon, 30) end
+            applicationIconPaths[item.id] = iconPath or false
+        elseif iconPath == false then
+            iconPath = nil
+        end
+
+        if iconPath ~= nil then
+            iconNode = ui.image({ path = iconPath, width = 30, height = 30, fit = "contain", radius = 6 })
+        else
+            iconNode = ui.glyph({ name = "app-window", size = 22, color = "primary" })
+        end
+    else
+        iconNode = ui.glyph({ name = item.glyph or "command", size = 22, color = "primary" })
+    end
 
     return ui.row({
         key = (isApplication and "app-" or "action-") .. item.id,
@@ -216,7 +226,7 @@ local function resultRow(item, selected)
             if isApplication then activateApplication(item) else activateAction(item) end
         end,
     }, {
-        ui.row({ width = 34, height = 34, align = "center", justify = "center" }, { iconNode }),
+        ui.row({ width = 36, height = 36, align = "center", justify = "center", fill = "primary/0.10", radius = 9 }, { iconNode }),
         ui.column({ gap = 1, flexGrow = 1 }, {
             ui.label({ text = item.title, fontSize = 14, fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
             ui.label({ text = subtitle, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
@@ -387,6 +397,7 @@ local function loadApplications()
             end
         end
         applications = loaded
+        applicationIconPaths = {}
         applicationsLoaded = true
         if isOpen then render() end
     end, 10000)
