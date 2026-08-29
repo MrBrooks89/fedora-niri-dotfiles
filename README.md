@@ -42,7 +42,8 @@ fedora-niri-dotfiles/
 │   ├── config.toml
 │   └── plugins/command-center/
 ├── noctalia-greeter/
-│   └── greeter.toml
+│   ├── greeter.toml
+│   └── sync.toml
 ├── satty/
 ├── .zshrc
 ├── starship.toml
@@ -295,9 +296,17 @@ configures greetd to launch Niri. Stable appearance, authentication, and
 session defaults live in `noctalia-greeter/greeter.toml`; the login user is
 discovered and inserted into the installed copy. Noctalia's
 `greeter-sync` command owns mutable theme, wallpaper, and output state in
-`/var/lib/noctalia-greeter/sync.toml`. The installer also places a tmpfiles
-override under `/etc/tmpfiles.d` because the upstream rule assumes a separate
-`greeter` account while this setup runs the greeter as `greetd`.
+`/var/lib/noctalia-greeter/sync.toml`. On first install, the tracked
+`noctalia-greeter/sync.toml` seeds the pinned greeter's visible Shutdown and
+Restart controls; later installs preserve the live mutable file. The pinned
+revision parses a suspend command but does not render a suspend control, so the
+seed intentionally exposes only the two complete upstream actions. The greeter
+uses its built-in fallback chain (`systemctl`, `loginctl`, and the matching
+`poweroff` or `reboot` executables) rather than running repository-provided
+privileged shell commands. The installer also
+places a tmpfiles override under `/etc/tmpfiles.d` because the upstream rule
+assumes a separate `greeter` account while this setup runs the greeter as
+`greetd`.
 
 To reinstall or update the pinned build:
 
