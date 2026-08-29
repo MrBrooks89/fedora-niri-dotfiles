@@ -738,6 +738,11 @@ if [[ "$WITH_GAMING" -eq 1 ]]; then
         bluez-tools \
         joystick-support
 
+    echo "==> Installing LACT GPU control daemon from ilyaz/LACT COPR"
+    sudo dnf -y copr enable ilyaz/LACT
+    sudo dnf -y install lact
+    sudo systemctl enable --now lactd
+
     echo "==> Installing Heroic Games Launcher from Flathub"
     flatpak remote-add --user --if-not-exists \
         flathub https://dl.flathub.org/repo/flathub.flatpakrepo
