@@ -85,12 +85,32 @@ herdr/bootstrap-team.sh --check
 
 `--setup` and `--repair` are the same additive, idempotent reconciliation path.
 They read all opaque IDs from Herdr JSON, create in the background with the
-repository root as cwd, and start a missing
-role only in a verified empty shell. It never closes, stops, replaces, renames,
-or sends keys to an existing agent. Duplicate labels, wrong cwd/kind/tab,
-unexpected occupied panes, extra named agents, blocked/unknown agents, or an
-unsupported version fail closed for manual inspection. Normal attachment does
+repository root as cwd, and start a missing role only in a verified empty shell.
+They rename only the sole pristine initial workspace/tab during adoption and
+never close, stop, replace, rename, or send keys to an existing agent.
+Duplicate labels, wrong cwd/kind/tab,
+unexpected occupied panes, extra named agents, unknown agents, or an unsupported
+version fail closed for manual inspection. Blocked and working agents are
+preserved as valid live roles and are never replaced. Normal attachment does
 not run repair, avoiding races with native session restore.
+
+Herdr 0.8.2 does not inject `HERDR_SESSION` into panes. The controller does not
+depend on it: it requires the inherited socket/pane IDs, maps the canonical
+socket through `herdr session list --json`, and confirms `pane current
+--current` belongs to the running dedicated session before inspection. A fresh
+named session begins with one workspace, tab, and shell pane. Setup adopts that
+workspace only when it is the sole workspace, uses the canonical repository
+cwd, contains exactly one empty shell, and has no agents. Any other unexpected
+workspace fails closed; setup never creates a hidden second workspace.
+
+Before mutation, the controller takes one coherent discovery snapshot, waits up
+to three seconds for panes carrying native agent-session metadata to settle,
+and computes the complete immutable plan. Any conflict cancels the whole plan
+with zero writes. A still-unrecognized session-bearing pane is reported and
+preserved. An empty fallback shell without restore metadata can be assigned a
+new role during an explicit repair; this starts a new conversation and cannot
+recover the lost one. Each applied operation is rediscovered and checked before
+the next, so an interrupted run can be retried additively.
 
 Useful read-only inspection:
 
@@ -109,20 +129,31 @@ needs a user decision, and `unknown` does not prove completion.
 ## Durable handoffs
 
 `handoff.sh` provides the deliberately small persistence layer needed for role
-correctness. It stores bounded Markdown outside Git under
+correctness and restart recovery. It stores a schema-validated lifecycle ledger
+and bounded immutable handoff attempts outside Git under
 `${XDG_STATE_HOME:-$HOME/.local/state}/fedora-niri-dotfiles/herdr/tasks/`, with
 private permissions, a lock, atomic replacement, and SHA-256 output:
 
 ```bash
-herdr/handoff.sh init task-123
-herdr/handoff.sh put task-123 implementation /path/to/handoff.md
-herdr/handoff.sh show task-123 implementation
+head=$(git rev-parse HEAD)
+herdr/handoff.sh init task-123 "$head"
+herdr/handoff.sh transition task-123 intake triaged coordinator "$head"
+herdr/handoff.sh transition task-123 triaged assigned_implementation implementation "$head"
+herdr/handoff.sh put task-123 implementation 1 "$head" /path/to/handoff.md
+herdr/handoff.sh ack task-123 implementation 1 SHA256_FROM_PUT
+herdr/handoff.sh recover task-123 "$PWD"
 ```
 
 Use repository-relative paths and commit IDs in handoffs. Never store secrets,
 credentials, raw terminal transcripts, or unbounded logs. A coordinator task
 prompt should carry `TASK`, `STATE`, `ROLE`, `REPO_ROOT`, `BASE/HEAD`, `SCOPE`,
 `PROHIBITED`, `INPUT_ARTIFACTS` with hashes, `ACCEPTANCE`, and `RETURN`.
+The ledger records the state, assigned role, attempt, base/current commit,
+latest immutable artifact, and acknowledgement. Transitions reject stale
+expected states; `put` rejects assignment/attempt/head mismatches and existing
+attempt paths; `recover` verifies Git HEAD and artifact hashes before resuming.
+This intentionally does not schedule agents or publish Git changes: the
+coordinator remains responsible for prompts and state transitions.
 
 ## Recovery, update, and rollback
 
@@ -151,7 +182,11 @@ is needed.
 
 ## Validation
 
-Run `herdr/tests/run.sh`. It uses mocked Herdr JSON and temporary repositories;
-it never touches a live session. A uniquely named integration session may be
+Run `herdr/tests/run.sh`. Its evolving fake Herdr server covers fresh adoption,
+no-op rerun, additive and interrupted repair, restore settling, blocked/working
+preservation, conflict zero-mutation, malformed/error responses, and absent
+`HERDR_SESSION`. Shell tests cover symlinked `.zshrc`, spaces, alternate
+repositories, argument forwarding, and nested launch. It never touches a live
+session. A uniquely named integration session may be
 tested manually later, but never stop/delete the live default or Dotfiles Team
 session and never run the full Fedora bootstrap merely to validate this feature.

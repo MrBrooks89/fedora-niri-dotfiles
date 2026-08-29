@@ -1,341 +1,267 @@
 #!/usr/bin/env python3
 """Validate and additively reconcile the persistent dotfiles Herdr team."""
-
 from __future__ import annotations
-
-import argparse
+import argparse, fcntl, json, os, re, shutil, stat, subprocess, sys, time, tomllib
 from contextlib import contextmanager
-import fcntl
-import json
-import os
+from dataclasses import dataclass
 from pathlib import Path
-import re
-import shutil
-import stat
-import subprocess
-import sys
-import tomllib
+from typing import Any
 
 ROLE_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
+VERSION_RE = re.compile(r"^[1-9][0-9]*\.[0-9]+\.[0-9]+$")
 SUPPORTED_HERDR = (0, 8, 2)
 
+class WorkflowError(RuntimeError): pass
 
-class WorkflowError(RuntimeError):
-    pass
+@dataclass(frozen=True)
+class Operation:
+    action: str
+    tab: str = ""
+    role: str = ""
+    target: str = ""
 
-
-class Herdr:
-    def __init__(self, binary: str, session: str, dry_run: bool = False):
-        self.binary = binary
-        self.session = session
-        self.dry_run = dry_run
-
-    def command(self, *args: str) -> list[str]:
-        return [self.binary, "--session", self.session, *args]
-
-    def json(self, *args: str) -> dict:
-        proc = subprocess.run(
-            self.command(*args), text=True, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, check=False, timeout=30,
-        )
-        if proc.returncode != 0:
-            detail = proc.stderr.strip()[:1000] or proc.stdout.strip()[:1000]
-            raise WorkflowError(f"Herdr command failed ({proc.returncode}): {detail}")
-        try:
-            value = json.loads(proc.stdout)
-        except json.JSONDecodeError as exc:
-            raise WorkflowError("Herdr returned malformed JSON") from exc
-        if not isinstance(value, dict) or not isinstance(value.get("result"), dict):
-            raise WorkflowError("Herdr JSON response is missing result")
-        return value["result"]
-
-    def mutate(self, *args: str) -> dict:
-        print("+", " ".join(self.command(*args)))
-        if self.dry_run:
-            return {}
-        return self.json(*args)
-
+@dataclass
+class Snapshot:
+    workspaces: list[dict[str, Any]]
+    workspace: dict[str, Any] | None
+    tabs: list[dict[str, Any]]
+    panes: list[dict[str, Any]]
+    agents: list[dict[str, Any]]
+    processes: dict[str, list[dict[str, Any]]]
 
 def trusted_executable(name: str) -> str:
     candidate = shutil.which(name)
-    if not candidate:
-        raise WorkflowError(f"{name} is not installed")
-    path = Path(candidate).resolve()
-    details = path.stat()
-    if not stat.S_ISREG(details.st_mode):
-        raise WorkflowError(f"{name} is not a regular file")
-    system_binary = path.is_relative_to("/usr/bin") or path.is_relative_to("/usr/local/bin")
-    if (details.st_uid not in {0, os.getuid()} and not system_binary) or details.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+    if not candidate: raise WorkflowError(f"{name} is not installed")
+    path, details = Path(candidate).resolve(), Path(candidate).resolve().stat()
+    system = path.is_relative_to("/usr/bin") or path.is_relative_to("/usr/local/bin")
+    if not stat.S_ISREG(details.st_mode): raise WorkflowError(f"{name} is not a regular file")
+    if (details.st_uid not in {0, os.getuid()} and not system) or details.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
         raise WorkflowError(f"{name} executable has unsafe ownership or permissions")
     return str(path)
 
-
 def repo_root() -> Path:
     root = Path(__file__).resolve().parent.parent
-    proc = subprocess.run(
-        [trusted_executable("git"), "-C", str(root), "rev-parse", "--show-toplevel"],
-        text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False,
-    )
-    if proc.returncode != 0 or Path(proc.stdout.strip()).resolve() != root:
+    proc = subprocess.run([trusted_executable("git"), "-C", str(root), "rev-parse", "--show-toplevel"], text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if proc.returncode or Path(proc.stdout.strip()).resolve() != root or not (root / "AGENTS.md").is_file():
         raise WorkflowError("team.py is not inside the canonical dotfiles checkout")
-    if not (root / "AGENTS.md").is_file():
-        raise WorkflowError("canonical checkout is missing AGENTS.md")
     return root
 
-
-def load_manifest(root: Path) -> dict:
-    path = root / "herdr" / "team.toml"
-    with path.open("rb") as handle:
-        data = tomllib.load(handle)
-    required = {"schema_version", "workflow_version", "session", "workspace", "agent_kind", "max_agents_per_tab", "tabs", "prompts"}
-    if set(data) != required or data["schema_version"] != 1:
-        raise WorkflowError("team.toml has an unsupported schema")
-    if data["session"] == "default" or not ROLE_RE.fullmatch(data["session"]):
-        raise WorkflowError("team.toml has an unsafe session name")
-    if data["agent_kind"] != "codex" or data["max_agents_per_tab"] > 4:
-        raise WorkflowError("team.toml violates the supported agent policy")
-    if len(data["tabs"]) != 2:
-        raise WorkflowError("team.toml must declare exactly two tabs")
-    roles: list[str] = []
-    labels: list[str] = []
+def load_manifest(root: Path, path: Path | None = None) -> dict[str, Any]:
+    with (path or root / "herdr/team.toml").open("rb") as handle: data = tomllib.load(handle)
+    required = {"schema_version","workflow_version","session","workspace","agent_kind","max_agents_per_tab","tabs","prompts"}
+    if set(data) != required or type(data["schema_version"]) is not int or data["schema_version"] != 1: raise WorkflowError("unsupported manifest schema")
+    for key in ("workflow_version","session","workspace","agent_kind"):
+        if type(data[key]) is not str or not data[key]: raise WorkflowError(f"{key} must be a nonempty string")
+    if not VERSION_RE.fullmatch(data["workflow_version"]): raise WorkflowError("workflow_version must use MAJOR.MINOR.PATCH")
+    if data["session"] == "default" or not ROLE_RE.fullmatch(data["session"]): raise WorkflowError("unsafe session name")
+    limit = data["max_agents_per_tab"]
+    if type(limit) is not int or not 1 <= limit <= 4: raise WorkflowError("max_agents_per_tab must be an integer from 1 through 4")
+    if data["agent_kind"] != "codex" or type(data["tabs"]) is not list or len(data["tabs"]) != 2: raise WorkflowError("manifest must declare Codex and exactly two tabs")
+    roles, labels = [], []
     for tab in data["tabs"]:
-        if set(tab) != {"label", "roles"} or len(tab["roles"]) != 3:
-            raise WorkflowError("each tab must declare a label and three roles")
-        labels.append(tab["label"])
-        roles.extend(tab["roles"])
-    if labels != ["Build", "Review"] or len(set(roles)) != 6:
-        raise WorkflowError("team.toml has invalid tab labels or duplicate roles")
-    if any(not ROLE_RE.fullmatch(role) for role in roles):
-        raise WorkflowError("team.toml contains an invalid role name")
-    if set(data["prompts"]) != set(roles):
-        raise WorkflowError("team.toml prompt keys must exactly match roles")
-    prompt_root = (root / "herdr" / "prompts").resolve()
+        if type(tab) is not dict or set(tab) != {"label","roles"} or type(tab["label"]) is not str or type(tab["roles"]) is not list: raise WorkflowError("invalid tab declaration")
+        if not tab["roles"] or len(tab["roles"]) > limit or any(type(role) is not str for role in tab["roles"]): raise WorkflowError("tab role cardinality violates policy")
+        labels.append(tab["label"]); roles.extend(tab["roles"])
+    canonical = ["coordinator","implementation","integration","validation","security","release"]
+    if labels != ["Build","Review"] or roles != canonical or len(set(roles)) != 6 or any(not ROLE_RE.fullmatch(r) for r in roles): raise WorkflowError("manifest must declare canonical ordered tabs and roles")
+    if type(data["prompts"]) is not dict or set(data["prompts"]) != set(roles): raise WorkflowError("prompt keys must exactly match roles")
+    prompt_root = (root / "herdr/prompts").resolve()
     for role, relative in data["prompts"].items():
+        if type(relative) is not str: raise WorkflowError(f"prompt path for {role} must be a string")
         prompt = (root / "herdr" / relative).resolve()
-        if prompt.parent != prompt_root or not prompt.is_file() or prompt.is_symlink():
-            raise WorkflowError(f"unsafe or missing prompt for {role}")
-        if prompt.stat().st_size > 16384:
-            raise WorkflowError(f"prompt for {role} exceeds 16 KiB")
+        if prompt.parent != prompt_root or not prompt.is_file() or prompt.is_symlink() or prompt.stat().st_size > 16384: raise WorkflowError(f"unsafe, missing, or oversized prompt for {role}")
     return data
 
+class Herdr:
+    def __init__(self, binary: str, session: str, dry_run=False): self.binary, self.session, self.dry_run = binary, session, dry_run
+    def command(self, *args: str, selected=True) -> list[str]: return [self.binary, *( ["--session",self.session] if selected else []), *args]
+    def run_json(self, *args: str, selected=True) -> dict[str, Any]:
+        proc = subprocess.run(self.command(*args, selected=selected), text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        if proc.returncode: raise WorkflowError(f"Herdr command failed ({proc.returncode}): {(proc.stderr.strip() or proc.stdout.strip())[:1000]}")
+        try: value = json.loads(proc.stdout)
+        except json.JSONDecodeError as exc: raise WorkflowError("Herdr returned malformed JSON") from exc
+        if not isinstance(value, dict): raise WorkflowError("Herdr JSON response must be an object")
+        if selected:
+            if not isinstance(value.get("result"), dict) or value.get("error") is not None: raise WorkflowError("Herdr JSON response is missing a successful result")
+            return value["result"]
+        return value
+    def mutate(self, *args: str) -> dict[str, Any]:
+        print("+", " ".join(self.command(*args)))
+        return {} if self.dry_run else self.run_json(*args)
 
-def check_version(binary: str) -> None:
-    proc = subprocess.run([binary, "--version"], text=True, stdout=subprocess.PIPE, check=False)
+def check_version(binary):
+    proc = subprocess.run([binary,"--version"], text=True, stdout=subprocess.PIPE)
     match = re.fullmatch(r"herdr (\d+)\.(\d+)\.(\d+)\s*", proc.stdout)
-    if proc.returncode != 0 or not match or tuple(map(int, match.groups())) != SUPPORTED_HERDR:
-        raise WorkflowError("this workflow currently requires Herdr 0.8.2")
+    if proc.returncode or not match or tuple(map(int,match.groups())) != SUPPORTED_HERDR: raise WorkflowError("this workflow requires Herdr 0.8.2")
 
+def check_integration(binary):
+    proc = subprocess.run([binary,"integration","status"], text=True, stdout=subprocess.PIPE)
+    if proc.returncode or not re.search(r"^codex: current \(v\d+\)",proc.stdout,re.MULTILINE): raise WorkflowError("Codex integration is not current; install it explicitly")
 
-def check_integration(binary: str) -> None:
-    proc = subprocess.run([binary, "integration", "status"], text=True, stdout=subprocess.PIPE, check=False)
-    if proc.returncode != 0 or not re.search(r"^codex: current \(v\d+\)", proc.stdout, re.MULTILINE):
-        raise WorkflowError("Codex integration is not current; review README and run 'herdr integration install codex' explicitly")
-
+def identify_session(api: Herdr, env: dict[str,str]):
+    required = ("HERDR_SOCKET_PATH","HERDR_PANE_ID","HERDR_TAB_ID","HERDR_WORKSPACE_ID")
+    if env.get("HERDR_ENV") != "1" or any(not env.get(k) for k in required): raise WorkflowError("run from a Herdr-managed pane with complete socket and pane context")
+    sessions = api.run_json("session","list","--json",selected=False).get("sessions")
+    if not isinstance(sessions,list): raise WorkflowError("session list has an unexpected schema")
+    inherited = Path(env["HERDR_SOCKET_PATH"]).resolve(strict=False)
+    matches = [s for s in sessions if isinstance(s,dict) and s.get("running") is True and isinstance(s.get("socket_path"),str) and Path(s["socket_path"]).resolve(strict=False)==inherited]
+    if len(matches)!=1 or matches[0].get("name")!=api.session: raise WorkflowError(f"inherited socket is not the running {api.session} session")
+    current = api.run_json("pane","current","--current").get("pane")
+    if not isinstance(current,dict) or current.get("pane_id")!=env["HERDR_PANE_ID"] or current.get("workspace_id")!=env["HERDR_WORKSPACE_ID"]: raise WorkflowError("pane context does not match selected session")
 
 @contextmanager
 def reconcile_lock():
-    state_home = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
-    directory = state_home / "fedora-niri-dotfiles" / "herdr"
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    directory.chmod(0o700)
-    lock_path = directory / "reconcile.lock"
-    with lock_path.open("a+", encoding="utf-8") as handle:
-        os.chmod(lock_path, 0o600)
-        fcntl.flock(handle, fcntl.LOCK_EX)
-        yield
+    directory = Path(os.environ.get("XDG_STATE_HOME",Path.home()/".local/state"))/"fedora-niri-dotfiles/herdr"
+    directory.mkdir(mode=0o700,parents=True,exist_ok=True); directory.chmod(0o700)
+    lock = directory/"reconcile.lock"
+    with lock.open("a+") as handle:
+        os.chmod(lock,0o600); fcntl.flock(handle,fcntl.LOCK_EX); yield
 
+def items(result,key):
+    value=result.get(key)
+    if not isinstance(value,list) or any(not isinstance(x,dict) for x in value): raise WorkflowError(f"unexpected {key} schema")
+    return value
 
-def result_item(result: dict, key: str, id_key: str) -> str:
-    item = result.get(key)
-    if not isinstance(item, dict) or not isinstance(item.get(id_key), str):
-        raise WorkflowError(f"Herdr response is missing {key}.{id_key}")
-    return item[id_key]
+def result_id(result,key,id_key):
+    value=result.get(key)
+    if not isinstance(value,dict) or not isinstance(value.get(id_key),str): raise WorkflowError(f"missing {key}.{id_key}")
+    return value[id_key]
 
-
-def current_state(api: Herdr, manifest: dict, root: Path) -> tuple[dict | None, list[dict], list[dict], list[dict]]:
-    workspaces = api.json("workspace", "list").get("workspaces")
-    if not isinstance(workspaces, list):
-        raise WorkflowError("workspace list has an unexpected schema")
-    matches = [item for item in workspaces if item.get("label") == manifest["workspace"]]
-    if len(matches) > 1:
-        raise WorkflowError("conflict: duplicate Dotfiles Team workspaces")
-    if not matches:
-        return None, [], [], []
-    workspace = matches[0]
-    workspace_id = workspace.get("workspace_id")
-    if not isinstance(workspace_id, str):
-        raise WorkflowError("workspace has no opaque ID")
-    tabs = api.json("tab", "list", "--workspace", workspace_id).get("tabs")
-    panes = api.json("pane", "list", "--workspace", workspace_id).get("panes")
-    agents = api.json("agent", "list").get("agents")
-    if not all(isinstance(value, list) for value in (tabs, panes, agents)):
-        raise WorkflowError("Herdr state has an unexpected schema")
-    pane_ids = {pane.get("pane_id") for pane in panes}
-    agents = [agent for agent in agents if agent.get("pane_id") in pane_ids]
+def discover(api, manifest, root):
+    workspaces=items(api.run_json("workspace","list"),"workspaces")
+    matching=[w for w in workspaces if w.get("label")==manifest["workspace"]]
+    workspace=matching[0] if len(matching)==1 else (workspaces[0] if not matching and len(workspaces)==1 else None)
+    if workspace is None: return Snapshot(workspaces,None,[],[],items(api.run_json("agent","list"),"agents"),{})
+    wid=workspace.get("workspace_id")
+    if not isinstance(wid,str): raise WorkflowError("workspace missing opaque ID")
+    tabs=items(api.run_json("tab","list","--workspace",wid),"tabs"); panes=items(api.run_json("pane","list","--workspace",wid),"panes")
+    pane_ids={p.get("pane_id") for p in panes}; agents=[a for a in items(api.run_json("agent","list"),"agents") if a.get("pane_id") in pane_ids]
+    processes={}
     for pane in panes:
-        cwd = pane.get("cwd")
-        if not isinstance(cwd, str) or Path(cwd).resolve() != root:
-            raise WorkflowError(f"conflict: pane {pane.get('pane_id')} has the wrong cwd")
-    return workspace, tabs, panes, agents
+        pid=pane.get("pane_id"); info=api.run_json("pane","process-info","--pane",str(pid)).get("process_info")
+        if not isinstance(pid,str) or not isinstance(info,dict) or not isinstance(info.get("foreground_processes"),list): raise WorkflowError("unexpected process-info schema")
+        processes[pid]=info["foreground_processes"]
+    return Snapshot(workspaces,workspace,tabs,panes,agents,processes)
 
+def restore_pending(snapshot):
+    occupied={a.get("pane_id") for a in snapshot.agents}
+    return any(p.get("agent_session") and p.get("pane_id") not in occupied for p in snapshot.panes)
 
-def verify(manifest: dict, root: Path, workspace: dict | None, tabs: list[dict], panes: list[dict], agents: list[dict]) -> list[str]:
-    drift: list[str] = []
-    if workspace is None:
-        return ["missing workspace: Dotfiles Team"]
-    desired_labels = [tab["label"] for tab in manifest["tabs"]]
-    live_labels = [tab.get("label") for tab in tabs]
-    for label in desired_labels:
-        if live_labels.count(label) != 1:
-            drift.append(f"expected one {label} tab")
-    if len(tabs) != 2:
-        drift.append("workspace must contain exactly two tabs")
-    role_to_tab = {role: tab["label"] for tab in manifest["tabs"] for role in tab["roles"]}
-    names = [agent.get("name") for agent in agents if agent.get("name")]
-    if len(names) != len(set(names)):
-        drift.append("duplicate named agents")
-    tab_labels = {tab.get("tab_id"): tab.get("label") for tab in tabs}
-    for role, expected_tab in role_to_tab.items():
-        matches = [agent for agent in agents if agent.get("name") == role]
-        if len(matches) != 1:
-            drift.append(f"expected one agent named {role}")
-            continue
-        agent = matches[0]
-        if agent.get("agent") != manifest["agent_kind"]:
-            drift.append(f"{role} is not a Codex agent")
-        if tab_labels.get(agent.get("tab_id")) != expected_tab:
-            drift.append(f"{role} is in the wrong tab")
-        if agent.get("agent_status") == "unknown" or not agent.get("agent_session"):
-            drift.append(f"{role} is not safely recognized")
-    desired_roles = set(role_to_tab)
-    extras = [name for name in names if name not in desired_roles]
-    if extras:
-        drift.append("unexpected named agents: " + ", ".join(sorted(extras)))
-    for tab in tabs:
-        count = sum(agent.get("tab_id") == tab.get("tab_id") for agent in agents)
-        if count > manifest["max_agents_per_tab"]:
-            drift.append(f"tab {tab.get('label')} exceeds the agent limit")
-        pane_count = sum(pane.get("tab_id") == tab.get("tab_id") for pane in panes)
-        if tab.get("label") in desired_labels and pane_count != 3:
-            drift.append(f"tab {tab.get('label')} must contain exactly three panes")
-    return drift
+def settle_restore(api,manifest,root,seconds):
+    snapshot=discover(api,manifest,root); deadline=time.monotonic()+max(0,seconds)
+    while restore_pending(snapshot) and time.monotonic()<deadline:
+        time.sleep(min(.2,max(0,deadline-time.monotonic()))); snapshot=discover(api,manifest,root)
+    return snapshot
 
+def plan(snapshot,manifest,root):
+    ops, conflicts=[],[]
+    if len(snapshot.workspaces)!=1 or snapshot.workspace is None: return [],["session must contain exactly one workspace"]
+    managed=snapshot.workspace.get("label")==manifest["workspace"]
+    if not managed:
+        pristine=len(snapshot.tabs)==1 and len(snapshot.panes)==1 and not snapshot.agents and snapshot.panes[0].get("cwd") and Path(snapshot.panes[0]["cwd"]).resolve()==root and snapshot.processes.get(snapshot.panes[0].get("pane_id"))==[]
+        if not pristine: return [],["sole initial workspace is not pristine and cannot be adopted"]
+        ops += [Operation("rename_workspace",target=str(snapshot.workspace.get("workspace_id"))),Operation("rename_tab",tab="Build",target=str(snapshot.tabs[0].get("tab_id")))]
+    desired={t["label"]:t["roles"] for t in manifest["tabs"]}; live_labels=[t.get("label") for t in snapshot.tabs]
+    if managed:
+        extra=[str(x) for x in live_labels if x not in desired]
+        dup=[x for x in desired if live_labels.count(x)>1]
+        if extra: conflicts.append("unexpected tabs: "+", ".join(sorted(extra)))
+        if dup: conflicts.append("duplicate tabs: "+", ".join(sorted(dup)))
+    for pane in snapshot.panes:
+        cwd=pane.get("cwd")
+        if not isinstance(cwd,str) or Path(cwd).resolve()!=root: conflicts.append(f"pane {pane.get('pane_id')} has wrong cwd")
+    if restore_pending(snapshot): conflicts.append("native Codex restore did not settle")
+    role_tab={r:l for l,roles in desired.items() for r in roles}; named=[a for a in snapshot.agents if a.get("name")]
+    for role,expected in role_tab.items():
+        matches=[a for a in named if a.get("name")==role]
+        if len(matches)>1: conflicts.append(f"duplicate agent name: {role}")
+        elif matches:
+            agent=matches[0]; label=next((t.get("label") for t in snapshot.tabs if t.get("tab_id")==agent.get("tab_id")),None)
+            if not managed and len(snapshot.tabs)==1: label="Build"
+            if label!=expected: conflicts.append(f"{role} is in the wrong tab")
+            if agent.get("agent")!=manifest["agent_kind"]: conflicts.append(f"{role} has wrong agent kind")
+            if agent.get("agent_status")=="unknown" or not agent.get("agent_session"): conflicts.append(f"{role} is not safely recognized")
+    extras=sorted(str(a.get("name")) for a in named if a.get("name") not in role_tab)
+    if extras: conflicts.append("unexpected named agents: "+", ".join(extras))
+    if any(not a.get("name") for a in snapshot.agents): conflicts.append("unnamed recognized agent occupies topology")
+    if conflicts: return [],sorted(set(conflicts))
+    tab_by_label={t.get("label"):t for t in snapshot.tabs}
+    if not managed: tab_by_label={"Build":snapshot.tabs[0]}
+    occupied={a.get("pane_id") for a in snapshot.agents}
+    for label,roles in desired.items():
+        tab=tab_by_label.get(label)
+        if tab is None: ops.append(Operation("create_tab",tab=label)); panes=[{}]; agents=[]; free=[f"new:{label}:0"]
+        else:
+            panes=[p for p in snapshot.panes if p.get("tab_id")==tab.get("tab_id")]; agents=[a for a in snapshot.agents if a.get("tab_id")==tab.get("tab_id")]; free=[]
+            if len(panes)>len(roles): conflicts.append(f"{label} has extra panes")
+            for pane in panes:
+                pid=pane.get("pane_id")
+                if pid not in occupied:
+                    if pane.get("agent_session"): conflicts.append(f"pane {pid} retains restore metadata")
+                    elif snapshot.processes.get(pid)!=[]: conflicts.append(f"pane {pid} is occupied")
+                    else: free.append(str(pid))
+        missing=[r for r in roles if not any(a.get("name")==r for a in agents)]
+        for index in range(len(roles)-len(panes)):
+            token=f"new:{label}:{len(panes)+index}"; ops.append(Operation("split",tab=label,target=token)); free.append(token)
+        if len(free)!=len(missing): conflicts.append(f"{label} cannot map missing roles to empty panes")
+        else: ops.extend(Operation("start",tab=label,role=r,target=t) for r,t in zip(missing,free,strict=True))
+    return ([],sorted(set(conflicts))) if conflicts else (ops,[])
 
-def empty_shell(api: Herdr, pane_id: str) -> bool:
-    info = api.json("pane", "process-info", "--pane", pane_id).get("process_info")
-    return isinstance(info, dict) and info.get("foreground_processes") == []
+def verify(snapshot,manifest,root):
+    ops,conflicts=plan(snapshot,manifest,root)
+    if conflicts:return conflicts
+    if snapshot.workspace.get("label")!=manifest["workspace"]:return ["workspace has not been adopted"]
+    return [] if not ops else [f"pending operation: {op.action} {op.tab or op.role}" for op in ops]
 
+def assert_transition(api,manifest,root,op,tokens):
+    snap=discover(api,manifest,root)
+    if op.action=="rename_workspace" and snap.workspace.get("label")!=manifest["workspace"]: raise WorkflowError("workspace rename did not converge")
+    if op.action in {"rename_tab","create_tab"} and not any(t.get("label")==op.tab for t in snap.tabs): raise WorkflowError("tab operation did not converge")
+    if op.action=="split" and op.target not in tokens: raise WorkflowError("split response missing pane ID")
+    if op.action=="start" and not any(a.get("name")==op.role for a in snap.agents): raise WorkflowError("agent start did not converge")
 
-def prompt_role(api: Herdr, root: Path, role: str) -> None:
-    instruction = f"Read {root / 'AGENTS.md'} and {root / 'herdr' / 'prompts' / (role + '.md')} completely, then wait for a coordinator task envelope."
-    api.mutate("agent", "prompt", role, instruction)
+def apply_plan(api,manifest,root,operations):
+    tokens={}
+    for op in operations:
+        snap=discover(api,manifest,root); wid=str(snap.workspace.get("workspace_id"))
+        if op.action=="rename_workspace": api.mutate("workspace","rename",op.target,manifest["workspace"])
+        elif op.action=="rename_tab": api.mutate("tab","rename",op.target,op.tab)
+        elif op.action=="create_tab": tokens[f"new:{op.tab}:0"]=result_id(api.mutate("tab","create","--workspace",wid,"--cwd",str(root),"--label",op.tab,"--no-focus"),"root_pane","pane_id")
+        elif op.action=="split":
+            tab=next(t for t in snap.tabs if t.get("label")==op.tab); panes=[p for p in snap.panes if p.get("tab_id")==tab.get("tab_id")]
+            tokens[op.target]=result_id(api.mutate("pane","split","--pane",str(panes[0]["pane_id"]),"--direction","right","--cwd",str(root),"--no-focus"),"pane","pane_id")
+        elif op.action=="start":
+            pane=tokens.get(op.target,op.target); api.mutate("agent","start",op.role,"--kind",manifest["agent_kind"],"--pane",pane)
+            api.mutate("agent","prompt",op.role,f"Read {root/'AGENTS.md'} and {root/'herdr/prompts'/(op.role+'.md')} completely, then wait for a coordinator task envelope.")
+        else: raise WorkflowError(f"unsupported operation: {op.action}")
+        assert_transition(api,manifest,root,op,tokens)
 
-
-def reconcile(api: Herdr, manifest: dict, root: Path) -> None:
-    workspace, tabs, panes, agents = current_state(api, manifest, root)
-    if workspace is None:
-        result = api.mutate("workspace", "create", "--cwd", str(root), "--label", manifest["workspace"], "--no-focus")
-        if api.dry_run:
-            print("Would create Build and Review with three Codex roles each.")
-            return
-        workspace_id = result_item(result, "workspace", "workspace_id")
-        root_tab = result_item(result, "tab", "tab_id")
-        api.mutate("tab", "rename", root_tab, "Build")
-    workspace, tabs, panes, agents = current_state(api, manifest, root)
-    if workspace is None:
-        raise WorkflowError("workspace creation did not converge")
-    workspace_id = workspace["workspace_id"]
-
-    labels = [tab.get("label") for tab in tabs]
-    if len(labels) != len(set(labels)) or any(label not in {"Build", "Review"} for label in labels):
-        raise WorkflowError("conflict: unexpected or duplicate tab labels")
-    for desired in manifest["tabs"]:
-        if desired["label"] not in labels:
-            api.mutate("tab", "create", "--workspace", workspace_id, "--cwd", str(root), "--label", desired["label"], "--no-focus")
-            if api.dry_run:
-                continue
-            workspace, tabs, panes, agents = current_state(api, manifest, root)
-
-    if api.dry_run:
-        print("Would add only missing panes and roles; conflicts would stop repair.")
-        return
-
-    workspace, tabs, panes, agents = current_state(api, manifest, root)
-    desired_roles = {role for tab in manifest["tabs"] for role in tab["roles"]}
-    named = [agent for agent in agents if agent.get("name")]
-    if any(agent.get("name") not in desired_roles for agent in named):
-        raise WorkflowError("conflict: unexpected named agent in managed workspace")
-    tab_map = {tab["label"]: tab for tab in tabs}
-    for desired in manifest["tabs"]:
-        tab = tab_map[desired["label"]]
-        tab_id = tab["tab_id"]
-        tab_panes = [pane for pane in panes if pane.get("tab_id") == tab_id]
-        tab_agents = [agent for agent in agents if agent.get("tab_id") == tab_id]
-        wrong = [agent.get("name") for agent in tab_agents if agent.get("name") not in desired["roles"]]
-        if wrong or len(tab_panes) > 3:
-            raise WorkflowError(f"conflict: {desired['label']} has unexpected occupants or extra panes")
-        while len(tab_panes) < 3:
-            anchor = tab_panes[0]["pane_id"]
-            result = api.mutate("pane", "split", "--pane", anchor, "--direction", "right", "--cwd", str(root), "--no-focus")
-            result_item(result, "pane", "pane_id")
-            workspace, tabs, panes, agents = current_state(api, manifest, root)
-            tab_panes = [pane for pane in panes if pane.get("tab_id") == tab_id]
-            tab_agents = [agent for agent in agents if agent.get("tab_id") == tab_id]
-        missing = [role for role in desired["roles"] if not any(agent.get("name") == role for agent in tab_agents)]
-        available = [pane for pane in tab_panes if not any(agent.get("pane_id") == pane.get("pane_id") for agent in tab_agents)]
-        if len(available) != len(missing):
-            raise WorkflowError(f"conflict: {desired['label']} cannot be repaired additively")
-        for role, pane in zip(missing, available, strict=True):
-            pane_id = pane["pane_id"]
-            if not empty_shell(api, pane_id):
-                raise WorkflowError(f"conflict: pane {pane_id} is not an empty shell")
-            api.mutate("agent", "start", role, "--kind", manifest["agent_kind"], "--pane", pane_id)
-            prompt_role(api, root, role)
-            workspace, tabs, panes, agents = current_state(api, manifest, root)
-
-    drift = verify(manifest, root, *current_state(api, manifest, root))
-    if drift:
-        raise WorkflowError("repair incomplete: " + "; ".join(drift))
-    print("Herdr team is healthy.")
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    modes = parser.add_mutually_exclusive_group(required=True)
-    modes.add_argument("--validate-config", action="store_true")
-    modes.add_argument("--check", action="store_true")
-    modes.add_argument("--dry-run", action="store_true")
-    modes.add_argument("--setup", action="store_true")
-    modes.add_argument("--repair", action="store_true")
-    args = parser.parse_args()
+def main():
+    parser=argparse.ArgumentParser(description=__doc__); modes=parser.add_mutually_exclusive_group(required=True)
+    for mode in ("validate-config","check","dry-run","setup","repair"): modes.add_argument("--"+mode,action="store_true")
+    parser.add_argument("--settle-seconds",type=float,default=3.0); args=parser.parse_args()
     try:
-        root = repo_root()
-        manifest = load_manifest(root)
-        if args.validate_config:
-            print("team.toml and role prompts are valid.")
-            return 0
-        binary = trusted_executable("herdr")
-        check_version(binary)
-        check_integration(binary)
-        if os.environ.get("HERDR_ENV") != "1" or os.environ.get("HERDR_SESSION") != manifest["session"]:
-            raise WorkflowError(f"run this command inside the {manifest['session']} Herdr session")
-        api = Herdr(binary, manifest["session"], dry_run=args.dry_run)
-        if args.check:
-            drift = verify(manifest, root, *current_state(api, manifest, root))
-            if drift:
-                print("Herdr team drift:", file=sys.stderr)
-                for item in drift:
-                    print(f"- {item}", file=sys.stderr)
-                return 1
-            print("Herdr team is healthy.")
-            return 0
+        root=repo_root(); manifest=load_manifest(root)
+        if args.validate_config: print("team.toml and role prompts are valid."); return 0
+        binary=trusted_executable("herdr"); check_version(binary); check_integration(binary); api=Herdr(binary,manifest["session"],args.dry_run); identify_session(api,os.environ)
         with reconcile_lock():
-            reconcile(api, manifest, root)
-        return 0
-    except (OSError, subprocess.TimeoutExpired, WorkflowError, tomllib.TOMLDecodeError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
+            snap=settle_restore(api,manifest,root,args.settle_seconds); ops,conflicts=plan(snap,manifest,root)
+            if conflicts:
+                print("Herdr team conflicts:",file=sys.stderr)
+                for conflict in conflicts: print("- "+conflict,file=sys.stderr)
+                return 1
+            if args.check:
+                drift=verify(snap,manifest,root)
+                if drift:
+                    for item in drift: print("- "+item,file=sys.stderr)
+                    return 1
+                print("Herdr team is healthy."); return 0
+            for op in ops: print(f"Plan: {op.action} {op.role or op.tab or op.target}".rstrip())
+            if args.dry_run:return 0
+            apply_plan(api,manifest,root,ops); drift=verify(discover(api,manifest,root),manifest,root)
+            if drift: raise WorkflowError("repair incomplete: "+"; ".join(drift))
+            print("Herdr team is healthy."); return 0
+    except (OSError,subprocess.TimeoutExpired,WorkflowError,tomllib.TOMLDecodeError,StopIteration) as exc:
+        print(f"error: {exc}",file=sys.stderr); return 1
 
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+if __name__=="__main__": raise SystemExit(main())
