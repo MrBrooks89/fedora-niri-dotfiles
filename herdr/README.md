@@ -112,6 +112,15 @@ new role during an explicit repair; this starts a new conversation and cannot
 recover the lost one. Each applied operation is rediscovered and checked before
 the next, so an interrupted run can be retried additively.
 
+Role-contract delivery is a separate durable reconciliation phase. A private
+`role-contracts.json` records the workflow version, prompt SHA-256, native agent
+session identity, delivery state, and attempt count. A retained name after a
+failed/not-ready start is never restarted. An idle uninitialized role is
+prompted independently; one failed or interrupted delivery gets exactly one
+retry, while a second failure or a blocked uninitialized role is reported for
+user intervention. Successful delivery is not repeated until the prompt,
+workflow version, or native agent session changes.
+
 Useful read-only inspection:
 
 ```bash
@@ -155,6 +164,20 @@ attempt paths; `recover` verifies Git HEAD and artifact hashes before resuming.
 This intentionally does not schedule agents or publish Git changes: the
 coordinator remains responsible for prompts and state transitions.
 
+Blocking is a structured overlay, not a free-standing shortcut. Entry records
+the preserved state, current owner, required actor, and required action:
+
+```bash
+herdr/handoff.sh transition task-123 implementing blocked implementation "$head" \
+  --owner implementation --required-actor user \
+  --required-action 'approve network access'
+herdr/handoff.sh transition task-123 blocked implementing implementation "$head" --by user
+```
+
+Resume is legal only to `blocked_from` with the preserved owner. The coordinator
+may instead route to cancellation or the matching implementation/integration
+rework state. Direct blocked-to-release/complete jumps and stale resumes fail.
+
 ## Recovery, update, and rollback
 
 After a client loss, run plain `herdr` from the checkout and allow restore to
@@ -184,7 +207,8 @@ is needed.
 
 Run `herdr/tests/run.sh`. Its evolving fake Herdr server covers fresh adoption,
 no-op rerun, additive and interrupted repair, restore settling, blocked/working
-preservation, conflict zero-mutation, malformed/error responses, and absent
+preservation, durable role initialization and its single retry, retained
+not-ready names, conflict zero-mutation, malformed/error responses, and absent
 `HERDR_SESSION`. Shell tests cover symlinked `.zshrc`, spaces, alternate
 repositories, argument forwarding, and nested launch. It never touches a live
 session. A uniquely named integration session may be

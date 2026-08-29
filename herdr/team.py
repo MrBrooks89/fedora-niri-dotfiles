@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate and additively reconcile the persistent dotfiles Herdr team."""
 from __future__ import annotations
-import argparse, fcntl, json, os, re, shutil, stat, subprocess, sys, time, tomllib
+import argparse, fcntl, hashlib, json, os, re, shutil, stat, subprocess, sys, tempfile, time, tomllib
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -117,6 +117,37 @@ def reconcile_lock():
     with lock.open("a+") as handle:
         os.chmod(lock,0o600); fcntl.flock(handle,fcntl.LOCK_EX); yield
 
+def contract_file():
+    return Path(os.environ.get("XDG_STATE_HOME",Path.home()/".local/state"))/"fedora-niri-dotfiles/herdr/role-contracts.json"
+
+def load_contracts():
+    path=contract_file()
+    if not path.exists(): return {}
+    data=json.loads(path.read_text())
+    if not isinstance(data,dict) or data.get("schema_version")!=1 or not isinstance(data.get("roles"),dict): raise WorkflowError("invalid role-contract ledger")
+    required={"workflow_version","prompt_sha256","agent_session","status","attempts","last_error"}
+    for role,record in data["roles"].items():
+        if not ROLE_RE.fullmatch(role) or not isinstance(record,dict) or set(record)!=required or record["status"] not in {"attempting","failed","delivered"} or type(record["attempts"]) is not int or record["attempts"]<1 or not all(isinstance(record[k],str) for k in required-{"attempts"}): raise WorkflowError("invalid role-contract record")
+    return data["roles"]
+
+def write_contracts(records):
+    path=contract_file(); path.parent.mkdir(mode=0o700,parents=True,exist_ok=True); path.parent.chmod(0o700)
+    fd,name=tempfile.mkstemp(prefix=".role-contracts.",dir=path.parent); os.close(fd); temporary=Path(name)
+    try: temporary.write_text(json.dumps({"schema_version":1,"roles":records},indent=2,sort_keys=True)+"\n"); temporary.chmod(0o600); os.replace(temporary,path)
+    finally:
+        if temporary.exists(): temporary.unlink()
+
+def contract_identity(manifest,root,role,agent):
+    prompt=(root/"herdr"/manifest["prompts"][role]).read_bytes(); session=agent.get("agent_session",{}).get("value")
+    return manifest["workflow_version"],hashlib.sha256(prompt).hexdigest(),session if isinstance(session,str) else ""
+
+def contract_current(records,manifest,root,role,agent):
+    version,prompt_sha,session=contract_identity(manifest,root,role,agent); record=records.get(role)
+    return isinstance(record,dict) and (record.get("workflow_version"),record.get("prompt_sha256"),record.get("agent_session"))==(version,prompt_sha,session)
+
+def contract_delivered(records,manifest,root,role,agent):
+    return contract_current(records,manifest,root,role,agent) and records[role]["status"]=="delivered"
+
 def items(result,key):
     value=result.get(key)
     if not isinstance(value,list) or any(not isinstance(x,dict) for x in value): raise WorkflowError(f"unexpected {key} schema")
@@ -153,8 +184,8 @@ def settle_restore(api,manifest,root,seconds):
         time.sleep(min(.2,max(0,deadline-time.monotonic()))); snapshot=discover(api,manifest,root)
     return snapshot
 
-def plan(snapshot,manifest,root):
-    ops, conflicts=[],[]
+def plan(snapshot,manifest,root,contracts):
+    ops, init_ops, conflicts=[],[],[]
     if len(snapshot.workspaces)!=1 or snapshot.workspace is None: return [],["session must contain exactly one workspace"]
     managed=snapshot.workspace.get("label")==manifest["workspace"]
     if not managed:
@@ -181,6 +212,11 @@ def plan(snapshot,manifest,root):
             if label!=expected: conflicts.append(f"{role} is in the wrong tab")
             if agent.get("agent")!=manifest["agent_kind"]: conflicts.append(f"{role} has wrong agent kind")
             if agent.get("agent_status")=="unknown" or not agent.get("agent_session"): conflicts.append(f"{role} is not safely recognized")
+            elif not contract_delivered(contracts,manifest,root,role,agent):
+                if agent.get("agent_status")=="blocked": conflicts.append(f"{role} is blocked and its role contract is uninitialized")
+                elif agent.get("agent_status") not in {"idle","done"}: conflicts.append(f"{role} is not settled for role initialization")
+                elif contract_current(contracts,manifest,root,role,agent) and contracts[role]["attempts"]>=2: conflicts.append(f"{role} role initialization exhausted its single retry")
+                else: init_ops.append(Operation("initialize",role=role))
     extras=sorted(str(a.get("name")) for a in named if a.get("name") not in role_tab)
     if extras: conflicts.append("unexpected named agents: "+", ".join(extras))
     if any(not a.get("name") for a in snapshot.agents): conflicts.append("unnamed recognized agent occupies topology")
@@ -204,11 +240,13 @@ def plan(snapshot,manifest,root):
         for index in range(len(roles)-len(panes)):
             token=f"new:{label}:{len(panes)+index}"; ops.append(Operation("split",tab=label,target=token)); free.append(token)
         if len(free)!=len(missing): conflicts.append(f"{label} cannot map missing roles to empty panes")
-        else: ops.extend(Operation("start",tab=label,role=r,target=t) for r,t in zip(missing,free,strict=True))
+        else:
+            for role,target in zip(missing,free,strict=True): ops.append(Operation("start",tab=label,role=role,target=target)); init_ops.append(Operation("initialize",role=role))
+    ops.extend(init_ops)
     return ([],sorted(set(conflicts))) if conflicts else (ops,[])
 
-def verify(snapshot,manifest,root):
-    ops,conflicts=plan(snapshot,manifest,root)
+def verify(snapshot,manifest,root,contracts):
+    ops,conflicts=plan(snapshot,manifest,root,contracts)
     if conflicts:return conflicts
     if snapshot.workspace.get("label")!=manifest["workspace"]:return ["workspace has not been adopted"]
     return [] if not ops else [f"pending operation: {op.action} {op.tab or op.role}" for op in ops]
@@ -220,7 +258,7 @@ def assert_transition(api,manifest,root,op,tokens):
     if op.action=="split" and op.target not in tokens: raise WorkflowError("split response missing pane ID")
     if op.action=="start" and not any(a.get("name")==op.role for a in snap.agents): raise WorkflowError("agent start did not converge")
 
-def apply_plan(api,manifest,root,operations):
+def apply_plan(api,manifest,root,operations,contracts):
     tokens={}
     for op in operations:
         snap=discover(api,manifest,root); wid=str(snap.workspace.get("workspace_id"))
@@ -232,7 +270,17 @@ def apply_plan(api,manifest,root,operations):
             tokens[op.target]=result_id(api.mutate("pane","split","--pane",str(panes[0]["pane_id"]),"--direction","right","--cwd",str(root),"--no-focus"),"pane","pane_id")
         elif op.action=="start":
             pane=tokens.get(op.target,op.target); api.mutate("agent","start",op.role,"--kind",manifest["agent_kind"],"--pane",pane)
-            api.mutate("agent","prompt",op.role,f"Read {root/'AGENTS.md'} and {root/'herdr/prompts'/(op.role+'.md')} completely, then wait for a coordinator task envelope.")
+        elif op.action=="initialize":
+            agent=next((a for a in snap.agents if a.get("name")==op.role),None)
+            if not agent or agent.get("agent_status") not in {"idle","done"}: raise WorkflowError(f"{op.role} is not settled for role initialization")
+            version,prompt_sha,session=contract_identity(manifest,root,op.role,agent); previous=contracts.get(op.role,{})
+            attempts=previous.get("attempts",0)+1 if contract_current(contracts,manifest,root,op.role,agent) else 1
+            record={"workflow_version":version,"prompt_sha256":prompt_sha,"agent_session":session,"status":"attempting","attempts":attempts,"last_error":""}; contracts[op.role]=record; write_contracts(contracts)
+            instruction=f"Read {root/'AGENTS.md'} and {root/'herdr/prompts'/(op.role+'.md')} completely, then wait for a coordinator task envelope."
+            try: api.mutate("agent","prompt",op.role,instruction,"--wait","--timeout","120000")
+            except WorkflowError as exc:
+                record["status"]="failed"; record["last_error"]=str(exc)[:500]; write_contracts(contracts); raise
+            record["status"]="delivered"; record["last_error"]=""; write_contracts(contracts)
         else: raise WorkflowError(f"unsupported operation: {op.action}")
         assert_transition(api,manifest,root,op,tokens)
 
@@ -245,20 +293,20 @@ def main():
         if args.validate_config: print("team.toml and role prompts are valid."); return 0
         binary=trusted_executable("herdr"); check_version(binary); check_integration(binary); api=Herdr(binary,manifest["session"],args.dry_run); identify_session(api,os.environ)
         with reconcile_lock():
-            snap=settle_restore(api,manifest,root,args.settle_seconds); ops,conflicts=plan(snap,manifest,root)
+            contracts=load_contracts(); snap=settle_restore(api,manifest,root,args.settle_seconds); ops,conflicts=plan(snap,manifest,root,contracts)
             if conflicts:
                 print("Herdr team conflicts:",file=sys.stderr)
                 for conflict in conflicts: print("- "+conflict,file=sys.stderr)
                 return 1
             if args.check:
-                drift=verify(snap,manifest,root)
+                drift=verify(snap,manifest,root,contracts)
                 if drift:
                     for item in drift: print("- "+item,file=sys.stderr)
                     return 1
                 print("Herdr team is healthy."); return 0
             for op in ops: print(f"Plan: {op.action} {op.role or op.tab or op.target}".rstrip())
             if args.dry_run:return 0
-            apply_plan(api,manifest,root,ops); drift=verify(discover(api,manifest,root),manifest,root)
+            apply_plan(api,manifest,root,ops,contracts); drift=verify(discover(api,manifest,root),manifest,root,load_contracts())
             if drift: raise WorkflowError("repair incomplete: "+"; ".join(drift))
             print("Herdr team is healthy."); return 0
     except (OSError,subprocess.TimeoutExpired,WorkflowError,tomllib.TOMLDecodeError,StopIteration) as exc:

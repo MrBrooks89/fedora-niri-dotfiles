@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 ROLES={"coordinator","implementation","integration","validation","security","release"}
 STATES={"intake","triaged","assigned_implementation","implementing","integration_review","validation","security_review","release_review","ready_for_user","blocked","rework_implementation","rework_integration","complete","cancelled"}
-TRANSITIONS={"intake":{"triaged","blocked","cancelled"},"triaged":{"assigned_implementation","blocked","cancelled"},"assigned_implementation":{"implementing","blocked","cancelled"},"implementing":{"integration_review","blocked","cancelled"},"integration_review":{"validation","rework_implementation","blocked","cancelled"},"validation":{"security_review","rework_implementation","rework_integration","blocked","cancelled"},"security_review":{"release_review","rework_implementation","rework_integration","blocked","cancelled"},"release_review":{"ready_for_user","rework_implementation","rework_integration","blocked","cancelled"},"ready_for_user":{"complete","blocked","cancelled"},"rework_implementation":{"assigned_implementation","cancelled"},"rework_integration":{"integration_review","cancelled"},"blocked":STATES-{"intake"},"complete":set(),"cancelled":set()}
+TRANSITIONS={"intake":{"triaged","blocked","cancelled"},"triaged":{"assigned_implementation","blocked","cancelled"},"assigned_implementation":{"implementing","blocked","cancelled"},"implementing":{"integration_review","blocked","cancelled"},"integration_review":{"validation","rework_implementation","blocked","cancelled"},"validation":{"security_review","rework_implementation","rework_integration","blocked","cancelled"},"security_review":{"release_review","rework_implementation","rework_integration","blocked","cancelled"},"release_review":{"ready_for_user","rework_implementation","rework_integration","blocked","cancelled"},"ready_for_user":{"complete","blocked","cancelled"},"rework_implementation":{"assigned_implementation","cancelled"},"rework_integration":{"integration_review","cancelled"},"blocked":set(),"complete":set(),"cancelled":set()}
 ID_RE=re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$"); SHA_RE=re.compile(r"^[0-9a-f]{40,64}$")
 def now(): return datetime.now(timezone.utc).isoformat()
 def state_root():
@@ -23,10 +23,14 @@ def directory(base,task):
     if path.exists() and (path.is_symlink() or path.stat().st_uid!=os.getuid()): raise ValueError("task directory has unsafe ownership or symlink")
     return path
 def validate(data,task):
-    keys={"schema_version","task","state","assigned_role","attempt","base_head","current_head","created_at","updated_at","blocking_reason","last_handoff","acknowledged"}
-    if not isinstance(data,dict) or set(data)!=keys or data["schema_version"]!=1 or data["task"]!=task: raise ValueError("invalid task schema")
+    keys={"schema_version","task","state","assigned_role","attempt","base_head","current_head","created_at","updated_at","blocked","last_handoff","acknowledged"}
+    if not isinstance(data,dict) or set(data)!=keys or data["schema_version"]!=2 or data["task"]!=task: raise ValueError("invalid task schema")
     if data["state"] not in STATES or data["assigned_role"] not in ROLES or type(data["attempt"]) is not int or data["attempt"]<0: raise ValueError("invalid lifecycle fields")
-    if not all(isinstance(data[k],str) for k in ("base_head","current_head","created_at","updated_at","blocking_reason")): raise ValueError("invalid scalar fields")
+    if not all(isinstance(data[k],str) for k in ("base_head","current_head","created_at","updated_at")): raise ValueError("invalid scalar fields")
+    if data["state"]=="blocked":
+        overlay=data["blocked"]
+        if not isinstance(overlay,dict) or set(overlay)!={"blocked_from","owner","required_actor","required_action"} or overlay["blocked_from"] not in STATES-{"blocked","complete","cancelled"} or overlay["owner"] not in ROLES or overlay["owner"]!=data["assigned_role"] or not all(isinstance(overlay[k],str) and overlay[k].strip() for k in ("required_actor","required_action")): raise ValueError("invalid blocked overlay")
+    elif data["blocked"] is not None: raise ValueError("blocked overlay is only valid in blocked state")
     if any(data[k] is not None and not isinstance(data[k],dict) for k in ("last_handoff","acknowledged")): raise ValueError("invalid handoff metadata")
     if data["last_handoff"] is not None and (set(data["last_handoff"])!={"role","attempt","head","path","sha256"} or not re.fullmatch(r"[a-z][a-z0-9_-]{0,31}-[0-9]+\.md",str(data["last_handoff"].get("path","")))): raise ValueError("invalid latest handoff schema")
     if data["acknowledged"] is not None and set(data["acknowledged"])!={"role","attempt","head","path","sha256","acknowledged_at"}: raise ValueError("invalid acknowledgement schema")
@@ -46,7 +50,7 @@ def main():
     parser=argparse.ArgumentParser(); sub=parser.add_subparsers(dest="command",required=True)
     p=sub.add_parser("init"); p.add_argument("task"); p.add_argument("base_head")
     p=sub.add_parser("show"); p.add_argument("task")
-    p=sub.add_parser("transition"); p.add_argument("task"); p.add_argument("expected"); p.add_argument("next"); p.add_argument("role"); p.add_argument("head"); p.add_argument("--reason",default="")
+    p=sub.add_parser("transition"); p.add_argument("task"); p.add_argument("expected"); p.add_argument("next"); p.add_argument("role"); p.add_argument("head"); p.add_argument("--owner",default=""); p.add_argument("--required-actor",default=""); p.add_argument("--required-action",default=""); p.add_argument("--by",default="coordinator")
     p=sub.add_parser("put"); p.add_argument("task"); p.add_argument("role"); p.add_argument("attempt",type=int); p.add_argument("head"); p.add_argument("source")
     p=sub.add_parser("ack"); p.add_argument("task"); p.add_argument("role"); p.add_argument("attempt",type=int); p.add_argument("sha256")
     p=sub.add_parser("recover"); p.add_argument("task"); p.add_argument("repo")
@@ -55,15 +59,23 @@ def main():
       if args.command=="init":
         if not SHA_RE.fullmatch(args.base_head): raise ValueError("base_head must be a Git object ID")
         path.mkdir(parents=True,exist_ok=False); (path/"handoffs").mkdir(); path.chmod(0o700); (path/"handoffs").chmod(0o700); stamp=now()
-        write(path,{"schema_version":1,"task":args.task,"state":"intake","assigned_role":"coordinator","attempt":0,"base_head":args.base_head,"current_head":args.base_head,"created_at":stamp,"updated_at":stamp,"blocking_reason":"","last_handoff":None,"acknowledged":None}); print(path); return
+        write(path,{"schema_version":2,"task":args.task,"state":"intake","assigned_role":"coordinator","attempt":0,"base_head":args.base_head,"current_head":args.base_head,"created_at":stamp,"updated_at":stamp,"blocked":None,"last_handoff":None,"acknowledged":None}); print(path); return
       data=load(path,args.task)
       if args.command=="show": print(json.dumps(data,indent=2,sort_keys=True)); return
       if args.command=="transition":
-        if data["state"]!=args.expected or args.next not in TRANSITIONS[data["state"]]: raise ValueError("invalid or stale state transition")
+        if data["state"]!=args.expected: raise ValueError("invalid or stale state transition")
         if args.role not in ROLES or not SHA_RE.fullmatch(args.head): raise ValueError("invalid role or head")
-        if args.next=="blocked" and not args.reason.strip(): raise ValueError("blocked transition requires --reason")
+        if data["state"]=="blocked":
+            overlay=data["blocked"]; resume=args.next==overlay["blocked_from"] and args.role==overlay["owner"] and args.by in {"coordinator",overlay["required_actor"]}; expected_roles={"cancelled":"coordinator","rework_implementation":"implementation","rework_integration":"integration"}; reroute=args.next in expected_roles and args.role==expected_roles[args.next] and args.by=="coordinator"
+            if not (resume or reroute): raise ValueError("blocked state may only resume its preserved state or coordinator cancel/rework")
+            data["blocked"]=None
+        else:
+            if args.next not in TRANSITIONS[data["state"]]: raise ValueError("invalid lifecycle transition")
+            if args.next=="blocked":
+                if args.owner!=data["assigned_role"] or args.role!=data["assigned_role"] or not args.required_actor.strip() or not args.required_action.strip(): raise ValueError("blocked transition requires current owner, required actor, and required action")
+                data["blocked"]={"blocked_from":data["state"],"owner":args.owner,"required_actor":args.required_actor.strip(),"required_action":args.required_action.strip()}
         if args.role!=data["assigned_role"]: data["attempt"]+=1
-        data.update(state=args.next,assigned_role=args.role,current_head=args.head,blocking_reason=args.reason.strip() if args.next=="blocked" else "",updated_at=now()); write(path,data); return
+        data.update(state=args.next,assigned_role=args.role,current_head=args.head,updated_at=now()); write(path,data); return
       if args.command=="put":
         source=Path(args.source)
         if (args.role,args.attempt,args.head)!=(data["assigned_role"],data["attempt"],data["current_head"]): raise ValueError("handoff does not match current assignment")

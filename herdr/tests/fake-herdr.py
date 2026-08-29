@@ -51,7 +51,15 @@ if args[:2]==["pane","split"]:
     state["panes"].append({"pane_id":pid,"tab_id":anchor["tab_id"],"workspace_id":anchor["workspace_id"],"cwd":option("--cwd")}); response({"pane":{"pane_id":pid}}); raise SystemExit
 if args[:2]==["agent","start"]:
     mutation(); role=args[2]; pane=next(p for p in state["panes"] if p["pane_id"]==option("--pane")); pane.update({"agent":"codex","agent_status":"idle","agent_session":{"kind":"id","value":"session-"+role}})
-    state["agents"].append({**pane,"name":role}); response({"agent":{"name":role,"pane_id":pane["pane_id"]}}); raise SystemExit
+    state["agents"].append({**pane,"name":role})
+    if state.get("start_fail_after_role")==role:
+        save(); print(json.dumps({"error":{"message":"start returned failure after retaining name"}}),file=sys.stderr); raise SystemExit(1)
+    if state.get("start_not_ready_role")==role:
+        pane["agent_status"]="blocked"; state["agents"][-1]["agent_status"]="blocked"; save(); print(json.dumps({"error":{"code":"agent_not_ready"}}),file=sys.stderr); raise SystemExit(1)
+    response({"agent":{"name":role,"pane_id":pane["pane_id"]}}); raise SystemExit
 if args[:2]==["agent","prompt"]:
-    mutation(); response({"agent":{"name":args[2]}}); raise SystemExit
+    mutation(); role=args[2]; failures=state.setdefault("prompt_failures",{}).get(role,0)
+    if failures:
+        state["prompt_failures"][role]=failures-1; save(); print(json.dumps({"error":{"message":"prompt timeout"}}),file=sys.stderr); raise SystemExit(1)
+    response({"agent":{"name":role}}); raise SystemExit
 save(); print(json.dumps({"error":{"message":"unsupported fake command: "+command}})); raise SystemExit(1)
