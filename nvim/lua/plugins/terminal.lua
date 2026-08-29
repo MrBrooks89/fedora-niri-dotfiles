@@ -12,17 +12,31 @@ return {
         float_opts = { border = "double" },
       })
 
-      -- Gemini CLI Integration (Replicated from nvf)
+      -- Codex CLI integration
       local Terminal = require('toggleterm.terminal').Terminal
-      local gemini_terminal = Terminal:new({
-        cmd = "gemini",
+      local codex_terminal = Terminal:new({
+        cmd = "codex",
         hidden = true,
         direction = "float",
         float_opts = { border = "double" },
+        on_open = function(term)
+          vim.cmd("startinsert")
+          local input_group = vim.api.nvim_create_augroup("CodexTerminalInput", { clear = true })
+          vim.api.nvim_create_autocmd({ "BufEnter", "FocusGained" }, {
+            group = input_group,
+            buffer = term.bufnr,
+            callback = function()
+              if vim.api.nvim_get_current_buf() == term.bufnr then
+                vim.cmd("startinsert")
+              end
+            end,
+            desc = "Return the Codex terminal to input mode when focused",
+          })
+        end,
       })
 
-      function _gemini_terminal_toggle()
-        gemini_terminal:toggle()
+      function _codex_terminal_toggle()
+        codex_terminal:toggle()
       end
 
       -- Lazygit Integration
@@ -42,7 +56,7 @@ return {
 
       local map = vim.keymap.set
       map ("n", "<leader>g", "<cmd>lua_lazygit_toggle()<CR>", {silent = true, desc = "Lazygit"})
-      map("n", "<leader>tg", "<cmd>lua _gemini_terminal_toggle()<CR>", { silent = true, desc = "Gemini CLI Terminal" })
+      map("n", "<leader>tc", "<cmd>lua _codex_terminal_toggle()<CR>", { silent = true, desc = "Codex CLI Terminal" })
       map("n", "<leader>tt", "<cmd>ToggleTerm direction=float<CR>", { silent = true, desc = "Floating Terminal" })
     end,
   },
