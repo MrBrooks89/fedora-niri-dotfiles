@@ -20,4 +20,5 @@ require("lazy").setup({
   defaults = { lazy = false },
   install = { colorscheme = { "dracula" } },
   checker = { enabled = true },
+  rocks = { enabled = false },
 })

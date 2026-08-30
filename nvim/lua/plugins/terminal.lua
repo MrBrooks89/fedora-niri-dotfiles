@@ -13,7 +13,7 @@ return {
       })
 
       -- Codex CLI integration
-      local Terminal = require('toggleterm.terminal').Terminal
+      local Terminal = require("toggleterm.terminal").Terminal
       local codex_terminal = Terminal:new({
         cmd = "codex",
         hidden = true,
@@ -35,28 +35,21 @@ return {
         end,
       })
 
-      function _codex_terminal_toggle()
-        codex_terminal:toggle()
-      end
-
       -- Lazygit Integration
       local lazygit = Terminal:new({
         cmd = "lazygit",
         dir = "git_dir",
         direction = "float",
-        float_opts = { border = "double"},
+        float_opts = { border = "double" },
         on_open = function(term)
           vim.cmd("startinsert!")
-          vim.api.nvim_buf_set_keymap(term.bufnr, "n", "q", "<cmd>close<CR>", {noremap = true, silent = true})
+          vim.api.nvim_buf_set_keymap(term.bufnr, "n", "q", "<cmd>close<CR>", { noremap = true, silent = true })
         end,
       })
-      function _lazygit_toggle()
-        lazygit:toggle()
-      end
 
       local map = vim.keymap.set
-      map ("n", "<leader>g", "<cmd>lua_lazygit_toggle()<CR>", {silent = true, desc = "Lazygit"})
-      map("n", "<leader>tc", "<cmd>lua _codex_terminal_toggle()<CR>", { silent = true, desc = "Codex CLI Terminal" })
+      map("n", "<leader>g", function() lazygit:toggle() end, { silent = true, desc = "Lazygit" })
+      map("n", "<leader>tc", function() codex_terminal:toggle() end, { silent = true, desc = "Codex CLI Terminal" })
       map("n", "<leader>tt", "<cmd>ToggleTerm direction=float<CR>", { silent = true, desc = "Floating Terminal" })
     end,
   },

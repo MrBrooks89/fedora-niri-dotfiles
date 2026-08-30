@@ -269,7 +269,7 @@ echo "==> Installing base CLI/development/networking utilities"
 sudo dnf -y install \
     zsh git curl wget vim-enhanced nano tmux btop \
     neovim eza \
-    python3 python3-pip gcc gcc-c++ make \
+    python3 python3-pip ruff gcc gcc-c++ make \
     dnf-plugins-core \
     unzip tar rsync jq ripgrep fd-find \
     pciutils usbutils rfkill \

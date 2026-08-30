@@ -11,27 +11,20 @@ return {
       "folke/trouble.nvim",
     },
     config = function()
-      -- Suppress the lspconfig deprecation warning for Neovim 0.11
-      vim.g.lspconfig_silent = true 
-      
       require("mason").setup()
       require("mason-lspconfig").setup({
-        ensure_installed = { "pyright", "gopls", "rust_analyzer", "bashls", "lua_ls", "taplo", "yamlls"},
+        ensure_installed = { "pyright", "gopls", "rust_analyzer", "bashls", "lua_ls", "taplo", "yamlls" },
+        automatic_enable = false,
       })
 
       require("lspsaga").setup({
         ui = { border = "rounded" },
       })
 
-      local capabilities = require('blink.cmp').get_lsp_capabilities()
-      local lspconfig = require("lspconfig")
-
+      local capabilities = require("blink.cmp").get_lsp_capabilities()
       local servers = { "pyright", "gopls", "rust_analyzer", "bashls", "lua_ls", "taplo", "yamlls" }
-      for _, lsp in ipairs(servers) do
-        lspconfig[lsp].setup({
-          capabilities = capabilities,
-        })
-      end
+      vim.lsp.config("*", { capabilities = capabilities })
+      vim.lsp.enable(servers)
 
       -- LSP Specific Keymaps
       local map = vim.keymap.set
@@ -49,9 +42,9 @@ return {
     version = "v0.*",
     opts = {
       keymap = {
-        ['<CR>'] = { 'accept', 'fallback' },
-        ['<Tab>'] = { 'select_next', 'fallback' },
-        ['<S-Tab>'] = { 'select_prev', 'fallback' },
+        ["<CR>"] = { "accept", "fallback" },
+        ["<Tab>"] = { "select_next", "fallback" },
+        ["<S-Tab>"] = { "select_prev", "fallback" },
       },
       completion = {
         list = { selection = { preselect = false, auto_insert = false } },
@@ -59,10 +52,10 @@ return {
       },
       appearance = {
         use_nvim_cmp_as_default = true,
-        nerd_font_variant = 'mono'
+        nerd_font_variant = "mono",
       },
       sources = {
-        default = { 'lsp', 'path', 'snippets', 'buffer' },
+        default = { "lsp", "path", "snippets", "buffer" },
       },
     },
   },
