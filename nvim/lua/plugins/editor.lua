@@ -6,15 +6,21 @@ return {
     "nvim-treesitter/nvim-treesitter",
     build = ":TSUpdate",
     config = function()
-      -- Use a protected call to handle changing Treesitter API versions
-      local status, ts = pcall(require, "nvim-treesitter.configs")
-      if status then
-        ts.setup({
-          ensure_installed = { "nix", "python", "go", "rust", "bash", "lua", "gitcommit", "gitignore", "git_rebase", "gitattributes" },
-          highlight = { enable = true },
-          indent = { enable = true },
-        })
-      end
+      local treesitter = require("nvim-treesitter")
+      local parsers = { "nix", "python", "go", "rust", "bash", "lua", "regex", "gitcommit", "gitignore", "git_rebase", "gitattributes" }
+
+      treesitter.setup({})
+      treesitter.install(parsers)
+
+      vim.api.nvim_create_autocmd("FileType", {
+        pattern = { "nix", "python", "go", "rust", "bash", "sh", "lua", "gitcommit", "gitignore", "gitrebase", "gitattributes" },
+        callback = function(args)
+          if pcall(vim.treesitter.start, args.buf) then
+            vim.bo[args.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+          end
+        end,
+        desc = "Enable Treesitter highlighting and indentation",
+      })
     end,
   },
 
@@ -36,13 +42,11 @@ return {
   -- Editing Utilities
   { "windwp/nvim-autopairs", opts = {} },
   { "smoka7/hop.nvim", version = "*", opts = {} },
-  { 
+  {
     url = "https://codeberg.org/andyg/leap.nvim",
-    config = function() 
-      local leap = require('leap')
-      -- Use the most stable mapping method
-      vim.keymap.set({'n', 'x', 'o'}, 's',  '<Plug>(leap-forward)')
-      vim.keymap.set({'n', 'x', 'o'}, 'S',  '<Plug>(leap-backward)')
+    config = function()
+      vim.keymap.set({ "n", "x", "o" }, "s", "<Plug>(leap-forward)")
+      vim.keymap.set({ "n", "x", "o" }, "S", "<Plug>(leap-backward)")
     end,
   },
 }

@@ -259,12 +259,20 @@ ripgrep
 fd
 jq
 python3
+ruff
 gcc/g++
 make
 pciutils
 usbutils
 rfkill
 ```
+
+### Neovim Python formatting
+
+Python buffers use four-space indentation and run Ruff before each save. Use
+`<leader>cf` to format manually, `:FormatDisable` to pause automatic formatting
+globally, or `:FormatDisable!` to pause it for only the current buffer. Run
+`:FormatEnable` to turn formatting back on.
 
 Desktop stack:
 
