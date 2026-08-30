@@ -4,7 +4,6 @@ local isOpen = false
 local query = ""
 local currentCategory = nil
 local applications = {}
-local applicationIconPaths = {}
 local applicationsLoading = false
 local applicationsLoaded = false
 local inputGeneration = 0
@@ -212,25 +211,10 @@ local function resultRow(item, selected, keyPrefix)
         end
     end
 
-    local iconNode
-    if isApplication then
-        local iconPath = applicationIconPaths[item.id]
-        if iconPath == nil then
-            iconPath = noctalia.appIconPath(item.id, 30)
-            if iconPath == nil and item.icon ~= "" then iconPath = noctalia.appIconPath(item.icon, 30) end
-            applicationIconPaths[item.id] = iconPath or false
-        elseif iconPath == false then
-            iconPath = nil
-        end
-
-        if iconPath ~= nil then
-            iconNode = ui.image({ path = iconPath, width = 30, height = 30, fit = "contain", radius = 6 })
-        else
-            iconNode = ui.glyph({ name = "app-window", size = 22, color = "primary" })
-        end
-    else
-        iconNode = ui.glyph({ name = item.glyph or "command", size = 22, color = "primary" })
-    end
+    -- Keep interactive renders below Noctalia's plugin callback budget. Theme
+    -- icon discovery is synchronous and can run once per application on the
+    -- first broad search or Applications view, so use the native glyph here.
+    local iconNode = ui.glyph({ name = item.glyph or "app-window", size = 22, color = "primary" })
 
     return ui.row({
         key = (keyPrefix or "") .. (isApplication and "app-" or "action-") .. item.id,
@@ -240,7 +224,6 @@ local function resultRow(item, selected, keyPrefix)
         align = "center",
         fill = selected and "primary/0.18" or "surface_variant/0.38",
         borderWidth = selected and 1 or 0,
-        borderColor = "primary/0.62",
         radius = 11,
         onClick = function()
             if isApplication then activateApplication(item) else activateAction(item) end
@@ -264,7 +247,6 @@ local function categoryRow(category, selected)
         align = "center",
         fill = selected and "primary/0.18" or "surface_variant/0.38",
         borderWidth = selected and 1 or 0,
-        borderColor = "primary/0.62",
         radius = 12,
         onClick = function() openCategory(category) end,
     }, {
@@ -290,7 +272,12 @@ local function goBack()
 end
 
 local function onSearchChanged(value)
-    query = value or ""
+    local nextQuery = value or ""
+    -- A controlled input can report its current value again after panel.render.
+    -- Rendering that unchanged value creates a feedback loop that resets arrow
+    -- selection and eventually trips Noctalia's repeated-timeout circuit breaker.
+    if nextQuery == query then return end
+    query = nextQuery
     selectedIndex = 1
     resetScrollToTop()
     render()
@@ -309,11 +296,11 @@ function onKey(chord, pressed)
     if chord == "down" and #items > 0 then
         selectedIndex = (selectedIndex % #items) + 1
         followSelection(#items)
-        render()
+        render(items)
     elseif chord == "up" and #items > 0 then
         selectedIndex = ((selectedIndex - 2) % #items) + 1
         followSelection(#items)
-        render()
+        render(items)
     elseif chord == "return" or chord == "right" then
         activateItem(items[selectedIndex] or items[1])
     elseif chord == "alt+left" and currentCategory ~= nil then
@@ -321,7 +308,7 @@ function onKey(chord, pressed)
     end
 end
 
-render = function()
+render = function(precomputedItems)
     if not isOpen then return end
 
     local activeCategory = categoryById(currentCategory)
@@ -343,7 +330,7 @@ render = function()
     })
     headerChildren[#headerChildren + 1] = ui.button({ glyph = "x", variant = "ghost", tooltip = "Close", onClick = function() panel.close() end })
 
-    local items = matchingItems()
+    local items = precomputedItems or matchingItems()
     if #items == 0 then
         selectedIndex = 1
     elseif selectedIndex > #items then
@@ -435,7 +422,6 @@ local function loadApplications()
             end
         end
         applications = loaded
-        applicationIconPaths = {}
         applicationsLoaded = true
         if isOpen then render() end
     end, 10000)
