@@ -28,6 +28,7 @@ set -Eeuo pipefail
 #   ├── install-noctalia-greeter.sh
 #   ├── configure-noctalia-greeter.sh
 #   ├── codex/skills/
+#   ├── herdr/                # persistent six-role workflow sources
 #   └── satty/                 # optional
 #
 # Symlink targets:
@@ -853,6 +854,7 @@ echo "  Kitty + Firefox + Dolphin"
 echo "  ChatGPT (native Wayland launcher + Mod+G shortcut)"
 echo "  Joplin"
 echo "  Neovim + eza + Starship"
+echo "  Repository-scoped persistent Herdr workflow sources"
 echo "  JetBrains Mono"
 echo "  NetworkManager Wi-Fi support"
 echo "  Intel iwlwifi firmware (iwlwifi-mvm-firmware)"

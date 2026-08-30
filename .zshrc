@@ -44,6 +44,12 @@ if [ -f "$HOME/.env" ]; then
 fi
 export PATH="$HOME/.local/bin:$PATH"
 
+# Route plain `herdr` from this canonical checkout to its dedicated persistent
+# session. All arguments and all other directories retain upstream behavior.
+typeset _fedora_niri_zshrc_source=${${(%):-%N}:A}
+source "${_fedora_niri_zshrc_source:h}/herdr/shell-integration.zsh"
+unset _fedora_niri_zshrc_source
+
 # Offer an opt-in AI diagnosis after a failed interactive command. The helper
 # sanitizes and bounds evidence before the notification action can invoke Codex.
 if [[ -o interactive ]] && [[ -x "$HOME/.local/bin/notify-command-failure" ]]; then
