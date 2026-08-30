@@ -25,6 +25,10 @@ local categories = {
     { id = "power", title = "Power", subtitle = "Lock, suspend and session controls", glyph = "power" },
 }
 
+local nestedCategories = {
+    { id = "sharing", parent = "tools", title = "Sharing", subtitle = "Send files and messages to nearby devices", glyph = "share" },
+}
+
 local actions = {
     { id = "control-center", category = "system", title = "Control Center", glyph = "adjustments", dispatch = "System › Control Center" },
     { id = "audio", category = "system", title = "Audio", glyph = "volume", dispatch = "System › Audio" },
@@ -56,11 +60,14 @@ local actions = {
     { id = "niri-config", category = "tools", title = "Edit Niri Config", glyph = "file-settings", dispatch = "Tools › Edit Niri Config" },
     { id = "noctalia-config", category = "tools", title = "Edit Noctalia Config", glyph = "file-settings", dispatch = "Tools › Edit Noctalia Config" },
     { id = "updates", category = "tools", title = "Fedora Updates", glyph = "refresh", dispatch = "Tools › Fedora Updates" },
+    { id = "sharing", category = "tools", title = "Sharing", subtitle = "Send files and messages to nearby devices", glyph = "share", childCategory = "sharing" },
     { id = "reminder-5m", category = "tools", title = "Reminder in 5 Minutes", glyph = "clock", dispatch = "Tools › Reminder in 5 Minutes" },
     { id = "reminder-15m", category = "tools", title = "Reminder in 15 Minutes", glyph = "clock", dispatch = "Tools › Reminder in 15 Minutes" },
     { id = "reminder-30m", category = "tools", title = "Reminder in 30 Minutes", glyph = "clock", dispatch = "Tools › Reminder in 30 Minutes" },
     { id = "reminders-list", category = "tools", title = "List Reminders", glyph = "list", dispatch = "Tools › List Reminders" },
     { id = "reminders-clear", category = "tools", title = "Clear Reminders", glyph = "trash", dispatch = "Tools › Clear Reminders" },
+
+    { id = "localsend", category = "sharing", title = "Open LocalSend", glyph = "share", dispatch = "Sharing › Open LocalSend" },
 
     { id = "lock", category = "power", title = "Lock", glyph = "lock", dispatch = "Power › Lock" },
     { id = "suspend", category = "power", title = "Suspend", glyph = "moon", dispatch = "Power › Suspend" },
@@ -86,6 +93,9 @@ end
 
 local function categoryById(id)
     for _, category in ipairs(categories) do
+        if category.id == id then return category end
+    end
+    for _, category in ipairs(nestedCategories) do
         if category.id == id then return category end
     end
     return nil
@@ -186,6 +196,7 @@ local function activateItem(item)
     if item == nil then return end
     if item.path ~= nil then activateApplication(item)
     elseif item.dispatch ~= nil then activateAction(item)
+    elseif item.childCategory ~= nil then openCategory(categoryById(item.childCategory))
     elseif item.id ~= nil then openCategory(item) end
 end
 
@@ -269,7 +280,8 @@ local function categoryRow(category, selected)
 end
 
 local function goBack()
-    currentCategory = nil
+    local category = categoryById(currentCategory)
+    currentCategory = category and category.parent or nil
     query = ""
     selectedIndex = 1
     resetScrollToTop()

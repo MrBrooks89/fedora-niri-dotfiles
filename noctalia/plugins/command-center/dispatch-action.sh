@@ -4,6 +4,17 @@ set -u
 capture_tools="$HOME/.config/noctalia/plugins/command-center/capture-tools.sh"
 reminder="$HOME/.local/bin/fedora-reminder"
 
+launch_localsend() {
+    if ! command -v flatpak >/dev/null 2>&1 || ! flatpak info org.localsend.localsend_app >/dev/null 2>&1; then
+        notify-send --app-name="LocalSend" --urgency=normal \
+            "LocalSend is not installed" \
+            "Install it with bootstrap-fedora44-niri-v3.sh --with-localsend, then choose Sharing again."
+        return 0
+    fi
+
+    flatpak run org.localsend.localsend_app
+}
+
 case "${1:-}" in
     "System › Control Center") noctalia msg panel-toggle control-center ;;
     "System › Audio") noctalia msg panel-toggle control-center audio ;;
@@ -32,6 +43,7 @@ case "${1:-}" in
     "Tools › Edit Niri Config") kitty nvim "$HOME/.config/niri/config.kdl" ;;
     "Tools › Edit Noctalia Config") kitty nvim "$HOME/.config/noctalia/config.toml" ;;
     "Tools › Fedora Updates") kitty --hold --title "Fedora Updates" sudo dnf upgrade --refresh ;;
+    "Sharing › Open LocalSend") launch_localsend ;;
     "Tools › Reminder in 5 Minutes") "$reminder" add 5m "Five-minute reminder" ;;
     "Tools › Reminder in 15 Minutes") "$reminder" add 15m "Fifteen-minute reminder" ;;
     "Tools › Reminder in 30 Minutes") "$reminder" add 30m "Thirty-minute reminder" ;;

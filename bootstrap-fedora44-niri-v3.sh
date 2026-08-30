@@ -57,6 +57,7 @@ WITH_SATTY_COPR=0
 WITH_NERD_FONT=0
 WITH_GAMING=0
 WITH_CODEX=0
+WITH_LOCALSEND=0
 WITH_AUTO_DIAGNOSTICS=0
 CONFIGURE_GITHUB=0
 CONFIGURE_NETWORK=0
@@ -83,6 +84,7 @@ Options:
   --with-containerlab      Install containerlab and add current user to clab_admins
   --with-gaming            Install Steam, ProtonUp-rs, Heroic, gaming tools,
                            and USB/Bluetooth Xbox controller support
+  --with-localsend         Install LocalSend from Flathub for nearby-device sharing
   --with-codex             Install Codex CLI and CodexBar usage helper
   --with-auto-diagnostics  Enable local Codex crash diagnosis and PR proposals
                            (requires --with-codex and --configure-github)
@@ -124,6 +126,7 @@ while [[ $# -gt 0 ]]; do
         --with-satty-copr)   WITH_SATTY_COPR=1 ;;
         --with-nerd-font)    WITH_NERD_FONT=1 ;;
         --with-gaming)      WITH_GAMING=1 ;;
+        --with-localsend)   WITH_LOCALSEND=1 ;;
         --with-codex)       WITH_CODEX=1 ;;
         --with-auto-diagnostics) WITH_AUTO_DIAGNOSTICS=1 ;;
         --configure-github) CONFIGURE_GITHUB=1 ;;
@@ -134,6 +137,7 @@ while [[ $# -gt 0 ]]; do
             WITH_SATTY_COPR=1
             WITH_NERD_FONT=1
             WITH_GAMING=1
+            WITH_LOCALSEND=1
             WITH_CODEX=1
             CONFIGURE_GITHUB=1
             CONFIGURE_NETWORK=1
@@ -345,6 +349,16 @@ trap - EXIT
 echo "==> Installing Joplin from taw/joplin COPR"
 sudo dnf -y copr enable taw/joplin
 sudo dnf -y install joplin
+
+if [[ "$WITH_LOCALSEND" -eq 1 ]]; then
+    echo "==> Installing LocalSend from Flathub"
+    sudo dnf -y install flatpak
+    flatpak remote-add --user --if-not-exists \
+        flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    flatpak install --user -y flathub org.localsend.localsend_app
+else
+    echo "NOTE: LocalSend not installed. Use --with-localsend to install it from Flathub."
+fi
 
 if [[ "$CONFIGURE_GITHUB" -eq 1 ]]; then
     echo "==> Configuring Git identity and GitHub CLI"

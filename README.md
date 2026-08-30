@@ -498,8 +498,10 @@ Mod+P { spawn-sh "noctalia msg panel-toggle session"; }
 
 `Mod+Space` opens the custom native Noctalia panel at
 `noctalia/plugins/command-center/`. Its root contains six categories and its
-search covers installed desktop applications plus leaf actions. The remaining
-launcher shortcuts open Noctalia's focused utility providers directly:
+search covers installed desktop applications plus leaf actions. `Tools →
+Sharing → Open LocalSend` launches LocalSend's supported graphical sharing
+workflow. The remaining launcher shortcuts open Noctalia's focused utility
+providers directly:
 
 - `Mod+D` opens the calculator (`/calc`).
 - `Mod+Shift+D` opens the emoji picker (`/emo`).
@@ -533,6 +535,33 @@ Validate niri config:
 ```bash
 niri validate
 ```
+
+### LocalSend
+
+LocalSend is optional and is installed from the LocalSend project's supported
+Linux distribution channel, Flathub. Enable the declarative, per-user install
+during bootstrap with:
+
+```bash
+./bootstrap-fedora44-niri-v3.sh --with-localsend
+```
+
+The bootstrap installs Fedora's `flatpak` package, adds Flathub only when it is
+not already configured for the desktop user, and installs
+`org.localsend.localsend_app`. Those operations are visible and idempotent.
+`--all` also includes LocalSend.
+
+In the command center, choose `Tools → Sharing → Open LocalSend`. The action
+uses Flatpak's normal application launcher and deliberately does not expose
+clipboard, file, or folder send shortcuts: LocalSend's documented desktop UI
+does not document a command-line send interface for the selected Flathub GUI
+distribution. If the app is not installed, the action displays a notification
+explaining how to add it instead of failing silently.
+
+LocalSend documents that a firewall may need to allow incoming TCP and UDP on
+port `53317` for nearby-device transfers. Review that requirement before
+changing the workstation firewall. See the upstream [LocalSend README](https://github.com/localsend/localsend#readme)
+and its [Flathub listing](https://flathub.org/apps/org.localsend.localsend_app).
 
 ### ChatGPT desktop
 
