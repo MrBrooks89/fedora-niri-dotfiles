@@ -85,6 +85,7 @@ Options:
   --with-gaming            Install Steam, ProtonUp-rs, Heroic, gaming tools,
                            and USB/Bluetooth Xbox controller support
   --with-localsend         Install LocalSend from Flathub for nearby-device sharing
+                           and allow its incoming traffic through firewalld
   --with-codex             Install Codex CLI and CodexBar usage helper
   --with-auto-diagnostics  Enable local Codex crash diagnosis and PR proposals
                            (requires --with-codex and --configure-github)
@@ -352,10 +353,37 @@ sudo dnf -y install joplin
 
 if [[ "$WITH_LOCALSEND" -eq 1 ]]; then
     echo "==> Installing LocalSend from Flathub"
-    sudo dnf -y install flatpak
+    sudo dnf -y install flatpak firewalld
     flatpak remote-add --user --if-not-exists \
         flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     flatpak install --user -y flathub org.localsend.localsend_app
+
+    echo "==> Allowing LocalSend through firewalld"
+    sudo systemctl enable --now firewalld
+
+    localsend_interface="$(ip -o -4 route show to default | awk '{ print $5; exit }')"
+    localsend_zone=""
+    if [[ -n "$localsend_interface" ]]; then
+        localsend_zone="$(sudo firewall-cmd --get-zone-of-interface="$localsend_interface" 2>/dev/null || true)"
+    fi
+    if [[ -z "$localsend_zone" || "$localsend_zone" == "no zone" ]]; then
+        localsend_zone="$(sudo firewall-cmd --get-default-zone)"
+    fi
+
+    echo "    firewall zone: $localsend_zone"
+    for protocol in tcp udp; do
+        localsend_port="53317/$protocol"
+        if ! sudo firewall-cmd --permanent --zone="$localsend_zone" \
+            --query-port="$localsend_port" >/dev/null; then
+            sudo firewall-cmd --permanent --zone="$localsend_zone" \
+                --add-port="$localsend_port"
+        fi
+        if ! sudo firewall-cmd --zone="$localsend_zone" \
+            --query-port="$localsend_port" >/dev/null; then
+            sudo firewall-cmd --zone="$localsend_zone" \
+                --add-port="$localsend_port"
+        fi
+    done
 else
     echo "NOTE: LocalSend not installed. Use --with-localsend to install it from Flathub."
 fi

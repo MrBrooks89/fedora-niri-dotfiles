@@ -554,10 +554,14 @@ during bootstrap with:
 ./bootstrap-fedora44-niri-v3.sh --with-localsend
 ```
 
-The bootstrap installs Fedora's `flatpak` package, adds Flathub only when it is
-not already configured for the desktop user, and installs
-`org.localsend.localsend_app`. Those operations are visible and idempotent.
-`--all` also includes LocalSend.
+The bootstrap installs Fedora's `flatpak` and `firewalld` packages, adds Flathub
+only when it is not already configured for the desktop user, and installs
+`org.localsend.localsend_app`. It enables firewalld and allows LocalSend's
+incoming TCP and UDP traffic on port `53317` in the zone assigned to the
+default-route interface. If that interface has no explicit zone, the firewalld
+default zone is used. Both the live and permanent rules are configured
+idempotently, so transfers work immediately and after a reboot. `--all` also
+includes LocalSend.
 
 In the command center, choose `Tools → Sharing → Open LocalSend`. The action
 uses Flatpak's normal application launcher and deliberately does not expose
@@ -566,9 +570,8 @@ does not document a command-line send interface for the selected Flathub GUI
 distribution. If the app is not installed, the action displays a notification
 explaining how to add it instead of failing silently.
 
-LocalSend documents that a firewall may need to allow incoming TCP and UDP on
-port `53317` for nearby-device transfers. Review that requirement before
-changing the workstation firewall. See the upstream [LocalSend README](https://github.com/localsend/localsend#readme)
+LocalSend documents that incoming TCP and UDP on port `53317` must be allowed
+for nearby-device transfers. See the upstream [LocalSend README](https://github.com/localsend/localsend#readme)
 and its [Flathub listing](https://flathub.org/apps/org.localsend.localsend_app).
 
 ### ChatGPT desktop
