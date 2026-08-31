@@ -34,6 +34,7 @@ readonly INVOKING_UID="$(id -u)"
 DATA_ROOT=""
 CONFIG_DIR=""
 APPLICATIONS_DIR=""
+TEMP_DIR=""
 
 usage() {
     cat <<'EOF'
@@ -144,22 +145,29 @@ path_is_within_data_root() {
 }
 
 assert_data_root() {
-    local canonical owner
+    local canonical owner mode
 
     [[ -d "$DATA_ROOT" && ! -L "$DATA_ROOT" ]] || die "Canonical XDG data root is not a real directory: $DATA_ROOT"
     owner="$(stat -c %u -- "$DATA_ROOT")" || die "Cannot inspect XDG data root: $DATA_ROOT"
     [[ "$owner" == "$INVOKING_UID" ]] || die "XDG data root is not owned by the invoking user: $DATA_ROOT"
+    mode="$(stat -c %a -- "$DATA_ROOT")" || die "Cannot inspect XDG data root permissions: $DATA_ROOT"
+    (( (8#$mode & 0022) == 0 )) || die "XDG data root must not be group or other writable: $DATA_ROOT"
     canonical="$(readlink -f -- "$DATA_ROOT")" || die "Cannot recanonicalize XDG data root: $DATA_ROOT"
     [[ "$canonical" == "$DATA_ROOT" ]] || die "Canonical XDG data root changed: $DATA_ROOT"
 }
 
 assert_managed_directory() {
     local directory="$1"
-    local canonical owner
+    local canonical owner mode
 
     [[ -d "$directory" && ! -L "$directory" ]] || die "Managed directory must be a real directory: $directory"
     owner="$(stat -c %u -- "$directory")" || die "Cannot inspect managed directory: $directory"
     [[ "$owner" == "$INVOKING_UID" ]] || die "Managed directory is not owned by the invoking user: $directory"
+    mode="$(stat -c %a -- "$directory")" || die "Cannot inspect managed directory permissions: $directory"
+    (( (8#$mode & 0022) == 0 )) || die "Managed directory must not be group or other writable: $directory"
+    if [[ "$directory" == "$CONFIG_DIR" ]]; then
+        (( (8#$mode & 0077) == 0 )) || die "Managed metadata directory must be private (0700): $directory"
+    fi
     canonical="$(readlink -f -- "$directory")" || die "Cannot canonicalize managed directory: $directory"
     path_is_within_data_root "$canonical" || die "Managed directory resolves outside XDG data root: $directory"
 }
@@ -184,15 +192,18 @@ prepare_storage() {
 
     CONFIG_DIR="$DATA_ROOT/fedora-web-apps"
     APPLICATIONS_DIR="$DATA_ROOT/applications"
+    TEMP_DIR="$DATA_ROOT/fedora-web-app-tmp"
     ensure_managed_directory "$CONFIG_DIR"
     ensure_managed_directory "$APPLICATIONS_DIR"
+    ensure_managed_directory "$TEMP_DIR"
 }
 
 recheck_storage() {
-    [[ -n "$DATA_ROOT" && -n "$CONFIG_DIR" && -n "$APPLICATIONS_DIR" ]] || die "Managed storage is not initialized."
+    [[ -n "$DATA_ROOT" && -n "$CONFIG_DIR" && -n "$APPLICATIONS_DIR" && -n "$TEMP_DIR" ]] || die "Managed storage is not initialized."
     assert_data_root
     assert_managed_directory "$CONFIG_DIR"
     assert_managed_directory "$APPLICATIONS_DIR"
+    assert_managed_directory "$TEMP_DIR"
 }
 
 assert_safe_destination() {
@@ -219,28 +230,23 @@ remove_managed_file() {
     rm -f -- "$destination"
 }
 
-write_atomic() {
+write_atomic() (
     local destination="$1"
-    local temporary
-    local parent
+    local temporary=""
 
-    parent="$(dirname -- "$destination")"
-    recheck_storage
-    assert_safe_destination "$destination"
-    temporary="$(mktemp --tmpdir="$parent" ".${destination##*/}.XXXXXX")" || die "Cannot create temporary file for: $destination"
-
-    if ! cat > "$temporary"; then
-        rm -f -- "$temporary"
-        die "Cannot write temporary file for: $destination"
-    fi
+    trap '[[ -z "${temporary:-}" ]] || rm -f -- "$temporary"' EXIT
 
     recheck_storage
     assert_safe_destination "$destination"
-    if ! mv -fT -- "$temporary" "$destination"; then
-        rm -f -- "$temporary"
-        die "Cannot replace destination safely: $destination"
-    fi
-}
+    temporary="$(mktemp --tmpdir="$TEMP_DIR" ".${destination##*/}.XXXXXX")" || die "Cannot create temporary file for: $destination"
+
+    cat > "$temporary" || die "Cannot write temporary file for: $destination"
+
+    recheck_storage
+    assert_safe_destination "$destination"
+    mv -fT -- "$temporary" "$destination" || die "Cannot replace destination safely: $destination"
+    temporary=""
+)
 
 write_web_app() {
     local id="$1"
@@ -301,7 +307,9 @@ read_web_app() {
     valid_id "$id" || die "ID must match [a-z0-9][a-z0-9-]{0,62}."
     prepare_storage
     config_file="$CONFIG_DIR/${APP_PREFIX}${id}.tsv"
-    [[ -f "$config_file" && ! -L "$config_file" ]] || return 1
+    recheck_storage
+    [[ -f "$config_file" && ! -L "$config_file" ]] || die "Managed metadata must be a non-symlink regular file: $config_file"
+    [[ "$(stat -c %u -- "$config_file")" == "$INVOKING_UID" ]] || die "Managed metadata is not owned by the invoking user: $config_file"
     IFS=$'\t' read -r record_name record_url extra < "$config_file" || return 1
     [[ -z "${extra:-}" ]] && valid_name "$record_name" && valid_url "$record_url" || return 1
     printf '%s\t%s\n' "$record_name" "$record_url"
@@ -407,14 +415,15 @@ list_command() {
 
     prepare_storage
     for config_file in "$CONFIG_DIR"/${APP_PREFIX}*.tsv; do
-        [[ -f "$config_file" && ! -L "$config_file" ]] || continue
+        [[ -e "$config_file" || -L "$config_file" ]] || continue
+        [[ -f "$config_file" && ! -L "$config_file" ]] || \
+            die "Managed metadata must be a non-symlink regular file: $config_file"
         id="${config_file##*/${APP_PREFIX}}"
         id="${id%.tsv}"
         valid_id "$id" || continue
-        if record="$(read_web_app "$id")"; then
-            printf '%s\t%s\n' "$id" "$record"
-            found=1
-        fi
+        record="$(read_web_app "$id")" || die "Refusing invalid managed metadata: $config_file"
+        printf '%s\t%s\n' "$id" "$record"
+        found=1
     done
     [[ "$found" -eq 1 ]] || printf 'No managed web apps.\n'
 }

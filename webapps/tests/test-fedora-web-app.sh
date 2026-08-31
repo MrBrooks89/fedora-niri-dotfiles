@@ -36,6 +36,9 @@ grep -Fx 'Name=Outlook' "$desktop_file" >/dev/null || fail "Desktop name mismatc
 grep -Fx $'Outlook\thttps://outlook.cloud.microsoft/mail/' "$config_file" >/dev/null || fail "Metadata mismatch."
 grep -Fx 'Exec=fedora-web-app launch --id outlook' "$desktop_file" >/dev/null || \
     fail "Desktop command must use the fixed manager name."
+chmod 0755 "$TEST_DATA" "$TEST_DATA/applications"
+env HOME="$TEST_HOME" XDG_DATA_HOME="$TEST_DATA" "$WEB_APP" add \
+    --id safe-modes --name 'Safe Modes' --url https://example.com/ >/dev/null
 
 if command -v desktop-file-validate >/dev/null 2>&1; then
     desktop-file-validate "$desktop_file"
@@ -135,6 +138,84 @@ expect_failure env HOME="$metadata_link_home" XDG_DATA_HOME="$metadata_link_data
     --id metadata-link --name 'Metadata Link' --url https://example.com/
 [[ -z "$(find "$metadata_external" -mindepth 1 -print -quit)" ]] || \
     fail "Symlinked metadata directory wrote outside managed storage."
+
+unsafe_data="$TEMP_DIR/unsafe writable data"
+unsafe_home="$TEMP_DIR/unsafe writable home"
+mkdir -p "$unsafe_data" "$unsafe_home"
+chmod 0777 "$unsafe_data"
+expect_failure env HOME="$unsafe_home" XDG_DATA_HOME="$unsafe_data" "$WEB_APP" add \
+    --id unsafe-root --name 'Unsafe Root' --url https://example.com/
+
+unsafe_children_data="$TEMP_DIR/unsafe writable children data"
+unsafe_children_home="$TEMP_DIR/unsafe writable children home"
+mkdir -p "$unsafe_children_data" "$unsafe_children_home"
+env HOME="$unsafe_children_home" XDG_DATA_HOME="$unsafe_children_data" "$WEB_APP" add \
+    --id unsafe-children --name 'Unsafe Children' --url https://example.com/ >/dev/null
+chmod 0770 "$unsafe_children_data/fedora-web-apps"
+expect_failure env HOME="$unsafe_children_home" XDG_DATA_HOME="$unsafe_children_data" "$WEB_APP" list
+chmod 0700 "$unsafe_children_data/fedora-web-apps"
+chmod 0770 "$unsafe_children_data/applications"
+expect_failure env HOME="$unsafe_children_home" XDG_DATA_HOME="$unsafe_children_data" "$WEB_APP" add \
+    --id unsafe-applications --name 'Unsafe Applications' --url https://example.com/
+
+foreign_data="$TEMP_DIR/foreign metadata data"
+foreign_home="$TEMP_DIR/foreign metadata home"
+foreign_bin="$TEMP_DIR/foreign metadata bin"
+mkdir -p "$foreign_data" "$foreign_home" "$foreign_bin"
+env HOME="$foreign_home" XDG_DATA_HOME="$foreign_data" "$WEB_APP" add \
+    --id foreign --name Foreign --url https://example.com/ >/dev/null
+foreign_metadata="$foreign_data/fedora-web-apps/fedora-web-app-foreign.tsv"
+printf '%s\n' '#!/usr/bin/env bash' \
+    'if [[ "$1" == "-c" && "$2" == "%u" && "${@: -1}" == "$WEB_APP_TEST_FOREIGN_METADATA" ]]; then printf "424242\n"; else exec /usr/bin/stat "$@"; fi' \
+    > "$foreign_bin/stat"
+chmod +x "$foreign_bin/stat"
+expect_failure env HOME="$foreign_home" XDG_DATA_HOME="$foreign_data" \
+    WEB_APP_TEST_FOREIGN_METADATA="$foreign_metadata" PATH="$foreign_bin:/usr/bin:/bin" \
+    "$WEB_APP" list
+expect_failure env HOME="$foreign_home" XDG_DATA_HOME="$foreign_data" \
+    WEB_APP_TEST_FOREIGN_METADATA="$foreign_metadata" PATH="$foreign_bin:/usr/bin:/bin" \
+    "$WEB_APP" launch --id foreign
+
+race_data="$TEMP_DIR/race data"
+race_home="$TEMP_DIR/race home"
+race_external="$TEMP_DIR/race external"
+race_bin="$TEMP_DIR/race bin"
+mkdir -p "$race_data" "$race_home" "$race_external" "$race_bin"
+printf '%s\n' '#!/usr/bin/env bash' \
+    'count_file="$WEB_APP_TEST_RACE_ROOT/.fedora-web-app-test-cat-count"' \
+    'count=0' \
+    '[[ -f "$count_file" ]] && read -r count < "$count_file"' \
+    'count=$((count + 1))' \
+    'printf "%s\\n" "$count" > "$count_file"' \
+    '/usr/bin/cat "$@"' \
+    'status=$?' \
+    'if [[ "$count" -eq 2 ]]; then' \
+    '    touch "$WEB_APP_TEST_RACE_ROOT/.fedora-web-app-test-ready"' \
+    '    while [[ ! -e "$WEB_APP_TEST_RACE_ROOT/.fedora-web-app-test-proceed" ]]; do sleep 0.01; done' \
+    'fi' \
+    'exit "$status"' > "$race_bin/cat"
+chmod +x "$race_bin/cat"
+race_metadata="$race_data/fedora-web-apps/fedora-web-app-race.tsv"
+env HOME="$race_home" XDG_DATA_HOME="$race_data" \
+    WEB_APP_TEST_RACE_ROOT="$race_data" PATH="$race_bin:/usr/bin:/bin" "$WEB_APP" add \
+    --id race --name Race --url https://example.com/ >/dev/null 2>&1 &
+race_pid=$!
+race_ready="$race_data/.fedora-web-app-test-ready"
+for _ in {1..100}; do
+    [[ -e "$race_ready" ]] && break
+    sleep 0.01
+done
+[[ -e "$race_ready" ]] || fail "Race hook did not reach post-write barrier."
+mv -- "$race_data/fedora-web-apps" "$race_data/fedora-web-apps-held"
+ln -s -- "$race_external" "$race_data/fedora-web-apps"
+touch "$race_data/.fedora-web-app-test-proceed"
+if wait "$race_pid"; then
+    fail "Directory-swap race unexpectedly succeeded."
+fi
+[[ -z "$(find "$race_external" -mindepth 1 -print -quit)" ]] || \
+    fail "Directory-swap race wrote to the external target."
+[[ -z "$(find "$race_data" -name '.fedora-web-app-race.tsv.*' -print -quit)" ]] || \
+    fail "Directory-swap race left temporary metadata residue."
 
 list_output="$(env HOME="$TEST_HOME" XDG_DATA_HOME="$TEST_DATA" "$WEB_APP" list)"
 [[ "$list_output" == *$'outlook\tOutlook\thttps://outlook.cloud.microsoft/mail/'* ]] || fail "List output mismatch."
