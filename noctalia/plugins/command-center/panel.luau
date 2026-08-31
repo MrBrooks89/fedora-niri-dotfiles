@@ -67,6 +67,7 @@ local actions = {
     { id = "reminders-clear", category = "tools", title = "Clear Reminders", glyph = "trash", dispatch = "Tools › Clear Reminders" },
 
     { id = "localsend", category = "sharing", title = "Open LocalSend", glyph = "share", dispatch = "Sharing › Open LocalSend" },
+    { id = "outlook-web-app", category = "sharing", title = "Open Outlook Web App", glyph = "mail", dispatch = "Sharing › Open Outlook Web App" },
 
     { id = "lock", category = "power", title = "Lock", glyph = "lock", dispatch = "Power › Lock" },
     { id = "suspend", category = "power", title = "Suspend", glyph = "moon", dispatch = "Power › Suspend" },

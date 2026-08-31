@@ -3,6 +3,7 @@ set -u
 
 capture_tools="$HOME/.config/noctalia/plugins/command-center/capture-tools.sh"
 reminder="$HOME/.local/bin/fedora-reminder"
+web_app="$HOME/.local/bin/fedora-web-app"
 
 launch_localsend() {
     if ! command -v flatpak >/dev/null 2>&1 || ! flatpak info org.localsend.localsend_app >/dev/null 2>&1; then
@@ -13,6 +14,17 @@ launch_localsend() {
     fi
 
     flatpak run org.localsend.localsend_app
+}
+
+launch_outlook_web_app() {
+    if [[ ! -x "$web_app" ]]; then
+        notify-send --app-name="Web Apps" --urgency=normal \
+            "Web app manager is unavailable" \
+            "Run the Fedora bootstrap to install the managed Outlook launcher."
+        return 0
+    fi
+
+    "$web_app" launch --id outlook
 }
 
 case "${1:-}" in
@@ -44,6 +56,7 @@ case "${1:-}" in
     "Tools › Edit Noctalia Config") kitty nvim "$HOME/.config/noctalia/config.toml" ;;
     "Tools › Fedora Updates") kitty --hold --title "Fedora Updates" sudo dnf upgrade --refresh ;;
     "Sharing › Open LocalSend") launch_localsend ;;
+    "Sharing › Open Outlook Web App") launch_outlook_web_app ;;
     "Tools › Reminder in 5 Minutes") "$reminder" add 5m "Five-minute reminder" ;;
     "Tools › Reminder in 15 Minutes") "$reminder" add 15m "Fifteen-minute reminder" ;;
     "Tools › Reminder in 30 Minutes") "$reminder" add 30m "Thirty-minute reminder" ;;

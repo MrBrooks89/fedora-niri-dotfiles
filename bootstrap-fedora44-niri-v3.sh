@@ -29,7 +29,8 @@ set -Eeuo pipefail
 #   ├── configure-noctalia-greeter.sh
 #   ├── codex/skills/
 #   ├── herdr/                # persistent six-role workflow sources
-#   └── satty/                 # optional
+#   ├── satty/                 # optional
+#   └── webapps/fedora-web-app # required managed Chromium web-app command
 #
 # Symlink targets:
 #   ~/.zshrc
@@ -42,6 +43,7 @@ set -Eeuo pipefail
 #   ~/.codex/skills/<tracked-skill>
 #   ~/.config/satty
 #   ~/.local/share/applications/chatgpt.desktop
+#   ~/.local/bin/fedora-web-app
 #
 # Existing configs are backed up before symlinks are created.
 
@@ -308,7 +310,7 @@ fi
 
 echo "==> Installing niri/Noctalia desktop components"
 sudo dnf -y install \
-    niri noctalia kitty firefox dolphin libnotify \
+    niri noctalia kitty firefox chromium dolphin libnotify desktop-file-utils \
     libcanberra-gtk3 sound-theme-freedesktop \
     pipewire wireplumber \
     xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-kde \
@@ -645,6 +647,13 @@ else
     echo "    $DOTFILES_DIR"
 fi
 
+WEB_APP_SOURCE="$DOTFILES_DIR/webapps/fedora-web-app"
+if [[ ! -f "$WEB_APP_SOURCE" || -L "$WEB_APP_SOURCE" || ! -x "$WEB_APP_SOURCE" ]]; then
+    echo "ERROR: Required web-app manager is missing or not a regular executable:" >&2
+    echo "       $WEB_APP_SOURCE" >&2
+    exit 1
+fi
+
 echo "==> Seeding generated theme files for first login"
 mkdir -p \
     "$DOTFILES_DIR/niri" \
@@ -683,11 +692,15 @@ backup_and_link "$DOTFILES_DIR/nvim"          "$HOME/.config/nvim"
 backup_and_link "$DOTFILES_DIR/btop"          "$HOME/.config/btop"
 backup_and_link "$DOTFILES_DIR/noctalia"      "$HOME/.config/noctalia"
 backup_and_link "$DOTFILES_DIR/satty"         "$HOME/.config/satty"
+backup_and_link "$WEB_APP_SOURCE" "$HOME/.local/bin/fedora-web-app"
 for skill_dir in "$DOTFILES_DIR"/codex/skills/*; do
     [[ -d "$skill_dir" ]] || continue
     backup_and_link "$skill_dir" "$HOME/.codex/skills/$(basename "$skill_dir")"
 done
 backup_and_link "$DOTFILES_DIR/chatgpt/chatgpt.desktop" "$HOME/.local/share/applications/chatgpt.desktop"
+
+echo "==> Provisioning the Outlook web app"
+"$WEB_APP_SOURCE" preset outlook
 
 echo "==> Installing Fedora reminder service"
 "$DOTFILES_DIR/reminders/install.sh"
