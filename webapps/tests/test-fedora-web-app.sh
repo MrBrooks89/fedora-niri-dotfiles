@@ -106,6 +106,36 @@ done
 grep -Fx -- '--ozone-platform=wayland' "$special_launch_log" >/dev/null || fail "Special-path Wayland flag missing."
 grep -Fx -- '--app=https://example.com/' "$special_launch_log" >/dev/null || fail "Special-path manager argv round trip failed."
 
+symlink_data="$TEMP_DIR/symlink data"
+symlink_home="$TEMP_DIR/symlink home"
+external_target="$TEMP_DIR/external target"
+mkdir -p "$symlink_data/applications" "$symlink_data/fedora-web-apps" "$symlink_home" "$external_target"
+ln -s -- "$external_target" "$symlink_data/fedora-web-apps/fedora-web-app-final-link.tsv"
+expect_failure env HOME="$symlink_home" XDG_DATA_HOME="$symlink_data" "$WEB_APP" add \
+    --id final-link --name 'Final Link' --url https://example.com/
+[[ -z "$(find "$external_target" -mindepth 1 -print -quit)" ]] || \
+    fail "Final destination symlink wrote outside managed storage."
+
+applications_link_data="$TEMP_DIR/applications link data"
+applications_link_home="$TEMP_DIR/applications link home"
+applications_external="$TEMP_DIR/applications external"
+mkdir -p "$applications_link_data" "$applications_link_home" "$applications_external"
+ln -s -- "$applications_external" "$applications_link_data/applications"
+expect_failure env HOME="$applications_link_home" XDG_DATA_HOME="$applications_link_data" "$WEB_APP" add \
+    --id applications-link --name 'Applications Link' --url https://example.com/
+[[ -z "$(find "$applications_external" -mindepth 1 -print -quit)" ]] || \
+    fail "Symlinked applications directory wrote outside managed storage."
+
+metadata_link_data="$TEMP_DIR/metadata link data"
+metadata_link_home="$TEMP_DIR/metadata link home"
+metadata_external="$TEMP_DIR/metadata external"
+mkdir -p "$metadata_link_data" "$metadata_link_home" "$metadata_external"
+ln -s -- "$metadata_external" "$metadata_link_data/fedora-web-apps"
+expect_failure env HOME="$metadata_link_home" XDG_DATA_HOME="$metadata_link_data" "$WEB_APP" add \
+    --id metadata-link --name 'Metadata Link' --url https://example.com/
+[[ -z "$(find "$metadata_external" -mindepth 1 -print -quit)" ]] || \
+    fail "Symlinked metadata directory wrote outside managed storage."
+
 list_output="$(env HOME="$TEST_HOME" XDG_DATA_HOME="$TEST_DATA" "$WEB_APP" list)"
 [[ "$list_output" == *$'outlook\tOutlook\thttps://outlook.cloud.microsoft/mail/'* ]] || fail "List output mismatch."
 env HOME="$TEST_HOME" XDG_DATA_HOME="$TEST_DATA" "$WEB_APP" remove --id outlook

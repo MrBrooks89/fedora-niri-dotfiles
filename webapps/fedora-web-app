@@ -29,9 +29,11 @@ xdg_data_home() {
     fi
 }
 
-readonly DATA_HOME="$(xdg_data_home)"
-readonly CONFIG_DIR="$DATA_HOME/fedora-web-apps"
-readonly APPLICATIONS_DIR="$DATA_HOME/applications"
+readonly SELECTED_DATA_HOME="$(xdg_data_home)"
+readonly INVOKING_UID="$(id -u)"
+DATA_ROOT=""
+CONFIG_DIR=""
+APPLICATIONS_DIR=""
 
 usage() {
     cat <<'EOF'
@@ -132,36 +134,135 @@ slug_from_name() {
 }
 
 update_desktop_database() {
+    recheck_storage
     command -v update-desktop-database >/dev/null 2>&1 || return 0
     update-desktop-database "$APPLICATIONS_DIR" >/dev/null 2>&1 || true
+}
+
+path_is_within_data_root() {
+    [[ "$1" == "$DATA_ROOT"/* ]]
+}
+
+assert_data_root() {
+    local canonical owner
+
+    [[ -d "$DATA_ROOT" && ! -L "$DATA_ROOT" ]] || die "Canonical XDG data root is not a real directory: $DATA_ROOT"
+    owner="$(stat -c %u -- "$DATA_ROOT")" || die "Cannot inspect XDG data root: $DATA_ROOT"
+    [[ "$owner" == "$INVOKING_UID" ]] || die "XDG data root is not owned by the invoking user: $DATA_ROOT"
+    canonical="$(readlink -f -- "$DATA_ROOT")" || die "Cannot recanonicalize XDG data root: $DATA_ROOT"
+    [[ "$canonical" == "$DATA_ROOT" ]] || die "Canonical XDG data root changed: $DATA_ROOT"
+}
+
+assert_managed_directory() {
+    local directory="$1"
+    local canonical owner
+
+    [[ -d "$directory" && ! -L "$directory" ]] || die "Managed directory must be a real directory: $directory"
+    owner="$(stat -c %u -- "$directory")" || die "Cannot inspect managed directory: $directory"
+    [[ "$owner" == "$INVOKING_UID" ]] || die "Managed directory is not owned by the invoking user: $directory"
+    canonical="$(readlink -f -- "$directory")" || die "Cannot canonicalize managed directory: $directory"
+    path_is_within_data_root "$canonical" || die "Managed directory resolves outside XDG data root: $directory"
+}
+
+ensure_managed_directory() {
+    local directory="$1"
+
+    if [[ ! -e "$directory" && ! -L "$directory" ]]; then
+        mkdir -m 0700 -- "$directory" || die "Cannot create managed directory: $directory"
+    fi
+    assert_managed_directory "$directory"
+}
+
+prepare_storage() {
+    if [[ ! -e "$SELECTED_DATA_HOME" && ! -L "$SELECTED_DATA_HOME" ]]; then
+        mkdir -p -m 0700 -- "$SELECTED_DATA_HOME" || die "Cannot create XDG data root: $SELECTED_DATA_HOME"
+    fi
+    [[ -d "$SELECTED_DATA_HOME" ]] || die "XDG data root is not a directory: $SELECTED_DATA_HOME"
+
+    DATA_ROOT="$(readlink -f -- "$SELECTED_DATA_HOME")" || die "Cannot canonicalize XDG data root: $SELECTED_DATA_HOME"
+    assert_data_root
+
+    CONFIG_DIR="$DATA_ROOT/fedora-web-apps"
+    APPLICATIONS_DIR="$DATA_ROOT/applications"
+    ensure_managed_directory "$CONFIG_DIR"
+    ensure_managed_directory "$APPLICATIONS_DIR"
+}
+
+recheck_storage() {
+    [[ -n "$DATA_ROOT" && -n "$CONFIG_DIR" && -n "$APPLICATIONS_DIR" ]] || die "Managed storage is not initialized."
+    assert_data_root
+    assert_managed_directory "$CONFIG_DIR"
+    assert_managed_directory "$APPLICATIONS_DIR"
+}
+
+assert_safe_destination() {
+    local destination="$1"
+    local owner
+
+    case "$(dirname -- "$destination")" in
+        "$CONFIG_DIR"|"$APPLICATIONS_DIR") ;;
+        *) die "Refusing a destination outside managed storage: $destination" ;;
+    esac
+
+    if [[ -e "$destination" || -L "$destination" ]]; then
+        [[ ! -L "$destination" && -f "$destination" ]] || die "Refusing symlink or non-regular destination: $destination"
+        owner="$(stat -c %u -- "$destination")" || die "Cannot inspect destination: $destination"
+        [[ "$owner" == "$INVOKING_UID" ]] || die "Destination is not owned by the invoking user: $destination"
+    fi
+}
+
+remove_managed_file() {
+    local destination="$1"
+
+    recheck_storage
+    assert_safe_destination "$destination"
+    rm -f -- "$destination"
 }
 
 write_atomic() {
     local destination="$1"
     local temporary
+    local parent
 
-    temporary="$(mktemp "${destination}.XXXXXX")"
-    cat > "$temporary"
-    mv -f -- "$temporary" "$destination"
+    parent="$(dirname -- "$destination")"
+    recheck_storage
+    assert_safe_destination "$destination"
+    temporary="$(mktemp --tmpdir="$parent" ".${destination##*/}.XXXXXX")" || die "Cannot create temporary file for: $destination"
+
+    if ! cat > "$temporary"; then
+        rm -f -- "$temporary"
+        die "Cannot write temporary file for: $destination"
+    fi
+
+    recheck_storage
+    assert_safe_destination "$destination"
+    if ! mv -fT -- "$temporary" "$destination"; then
+        rm -f -- "$temporary"
+        die "Cannot replace destination safely: $destination"
+    fi
 }
 
 write_web_app() {
     local id="$1"
     local name="$2"
     local url="$3"
-    local config_file="$CONFIG_DIR/${APP_PREFIX}${id}.tsv"
-    local desktop_file="$APPLICATIONS_DIR/${APP_PREFIX}${id}.desktop"
+    local config_file
+    local desktop_file
     local desktop_exec
 
     valid_id "$id" || die "ID must match [a-z0-9][a-z0-9-]{0,62}."
     valid_name "$name" || die "Name must be 1-63 letters, numbers, spaces, dots, underscores, or hyphens."
     valid_url "$url" || die "URL must be a well-formed HTTP(S) URL without whitespace, backslashes, or credentials."
 
-    mkdir -p "$CONFIG_DIR" "$APPLICATIONS_DIR"
+    prepare_storage
+    config_file="$CONFIG_DIR/${APP_PREFIX}${id}.tsv"
+    desktop_file="$APPLICATIONS_DIR/${APP_PREFIX}${id}.desktop"
     # The bootstrap links this fixed command name into the user-local PATH.
     # Keeping path data out of Exec avoids field-code and two-stage escaping
     # hazards for otherwise valid clone paths containing %, \\, ", $, or `.
     desktop_exec="$DESKTOP_COMMAND launch --id $id"
+    assert_safe_destination "$desktop_file"
+    assert_safe_destination "$config_file"
 
     write_atomic "$desktop_file" <<EOF
 [Desktop Entry]
@@ -180,7 +281,7 @@ EOF
 
     if command -v desktop-file-validate >/dev/null 2>&1; then
         desktop-file-validate "$desktop_file" || {
-            rm -f -- "$desktop_file"
+            remove_managed_file "$desktop_file"
             die "Generated desktop entry failed desktop-file-validate."
         }
     fi
@@ -194,10 +295,12 @@ EOF
 
 read_web_app() {
     local id="$1"
-    local config_file="$CONFIG_DIR/${APP_PREFIX}${id}.tsv"
+    local config_file
     local record_name record_url extra
 
     valid_id "$id" || die "ID must match [a-z0-9][a-z0-9-]{0,62}."
+    prepare_storage
+    config_file="$CONFIG_DIR/${APP_PREFIX}${id}.tsv"
     [[ -f "$config_file" && ! -L "$config_file" ]] || return 1
     IFS=$'\t' read -r record_name record_url extra < "$config_file" || return 1
     [[ -z "${extra:-}" ]] && valid_name "$record_name" && valid_url "$record_url" || return 1
@@ -291,7 +394,9 @@ remove_command() {
 
     local id="$2"
     valid_id "$id" || die "ID must match [a-z0-9][a-z0-9-]{0,62}."
-    rm -f -- "$CONFIG_DIR/${APP_PREFIX}${id}.tsv" "$APPLICATIONS_DIR/${APP_PREFIX}${id}.desktop"
+    prepare_storage
+    remove_managed_file "$CONFIG_DIR/${APP_PREFIX}${id}.tsv"
+    remove_managed_file "$APPLICATIONS_DIR/${APP_PREFIX}${id}.desktop"
     update_desktop_database
     printf 'Removed managed web app %q\n' "$id"
 }
@@ -300,7 +405,7 @@ list_command() {
     local config_file id record
     local found=0
 
-    [[ -d "$CONFIG_DIR" ]] || return 0
+    prepare_storage
     for config_file in "$CONFIG_DIR"/${APP_PREFIX}*.tsv; do
         [[ -f "$config_file" && ! -L "$config_file" ]] || continue
         id="${config_file##*/${APP_PREFIX}}"
