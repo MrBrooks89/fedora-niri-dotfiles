@@ -586,6 +586,9 @@ The bootstrap installs Fedora's `chromium` package and links the reusable
 `fedora-web-app` command into `~/.local/bin`. It also provisions Outlook as a
 managed web app at `https://outlook.cloud.microsoft/mail/`. Chromium launches
 each web app natively on Wayland with `--ozone-platform=wayland --app=URL`.
+Before linking or provisioning, bootstrap verifies that the selected dotfiles
+repository contains `webapps/fedora-web-app` as a regular executable; it then
+uses that verified source directly rather than any pre-existing home command.
 
 Run `fedora-web-app` in a terminal for an interactive name-and-URL prompt, or
 use its safe noninteractive form for scripts and presets:
@@ -605,7 +608,10 @@ in favor of `$HOME/.local/share`.
 Generated entries invoke the
 manager with a fixed ID, so URLs are never interpolated into shell commands or
 executed from desktop-entry content. The Fedora `chromium` package supplies
-the `chromium-browser` launcher and icon used by these entries.
+the `chromium-browser` launcher and icon used by these entries. Generated
+`Exec` values use the fixed `fedora-web-app` command name rather than a clone
+path, keeping field-code-like percent sequences and reserved path characters
+out of Desktop Entry string and argument parsing.
 
 ### ChatGPT desktop
 

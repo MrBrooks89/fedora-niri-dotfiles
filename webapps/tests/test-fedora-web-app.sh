@@ -34,8 +34,8 @@ config_file="$TEST_DATA/fedora-web-apps/fedora-web-app-outlook.tsv"
 [[ -f "$config_file" ]] || fail "Outlook metadata was not created."
 grep -Fx 'Name=Outlook' "$desktop_file" >/dev/null || fail "Desktop name mismatch."
 grep -Fx $'Outlook\thttps://outlook.cloud.microsoft/mail/' "$config_file" >/dev/null || fail "Metadata mismatch."
-grep -Fx "Exec=\"$WEB_APP\" launch --id outlook" "$desktop_file" >/dev/null || \
-    fail "Desktop command must quote the manager path."
+grep -Fx 'Exec=fedora-web-app launch --id outlook' "$desktop_file" >/dev/null || \
+    fail "Desktop command must use the fixed manager name."
 
 if command -v desktop-file-validate >/dev/null 2>&1; then
     desktop-file-validate "$desktop_file"
@@ -72,6 +72,39 @@ env HOME="$TEST_HOME" XDG_DATA_HOME="$TEST_DATA" \
     PATH="$browser_dir:/usr/bin:/bin" "$WEB_APP" launch --id outlook
 grep -Fx -- '--ozone-platform=wayland' "$launch_log" >/dev/null || fail "Wayland flag missing."
 grep -Fx -- '--app=https://outlook.cloud.microsoft/mail/' "$launch_log" >/dev/null || fail "App URL argument mismatch."
+
+command -v gio >/dev/null 2>&1 || fail "gio is required for the desktop-entry argv round-trip test."
+special_manager_dir="$TEMP_DIR/"'manager %f %Z \ " $ `'
+special_manager="$special_manager_dir/fedora-web-app"
+special_home="$TEMP_DIR/special home"
+special_data="$TEMP_DIR/special data"
+mkdir -p "$special_manager_dir" "$special_home" "$special_data"
+cp -- "$WEB_APP_SOURCE" "$special_manager"
+chmod +x "$special_manager"
+
+env HOME="$special_home" XDG_DATA_HOME="$special_data" "$special_manager" add \
+    --id probe --name Probe --url https://example.com/
+special_desktop="$special_data/applications/fedora-web-app-probe.desktop"
+desktop-file-validate "$special_desktop"
+grep -Fx 'Exec=fedora-web-app launch --id probe' "$special_desktop" >/dev/null || \
+    fail "Special manager path leaked into Exec."
+if grep -F '%' "$special_desktop" | grep -F 'Exec=' >/dev/null; then
+    fail "Exec must not contain field-code-like percent sequences."
+fi
+ln -s -- "$special_manager" "$browser_dir/fedora-web-app"
+
+special_launch_log="$TEMP_DIR/special-browser-arguments"
+rm -f -- "$special_launch_log"
+env HOME="$special_home" XDG_DATA_HOME="$special_data" \
+    WEB_APP_BROWSER="$browser_dir/chromium-browser" WEB_APP_TEST_LOG="$special_launch_log" \
+    PATH="$browser_dir:/usr/bin:/bin" gio launch "$special_desktop"
+for _ in {1..20}; do
+    [[ -s "$special_launch_log" ]] && break
+    sleep 0.1
+done
+[[ -s "$special_launch_log" ]] || fail "Desktop-entry launch did not reach the Chromium test double."
+grep -Fx -- '--ozone-platform=wayland' "$special_launch_log" >/dev/null || fail "Special-path Wayland flag missing."
+grep -Fx -- '--app=https://example.com/' "$special_launch_log" >/dev/null || fail "Special-path manager argv round trip failed."
 
 list_output="$(env HOME="$TEST_HOME" XDG_DATA_HOME="$TEST_DATA" "$WEB_APP" list)"
 [[ "$list_output" == *$'outlook\tOutlook\thttps://outlook.cloud.microsoft/mail/'* ]] || fail "List output mismatch."
