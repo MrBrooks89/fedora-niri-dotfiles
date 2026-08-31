@@ -6,6 +6,8 @@ local currentCategory = nil
 local applications = {}
 local applicationsLoading = false
 local applicationsLoaded = false
+local applicationLoadGeneration = 0
+local applicationRefreshPending = false
 local inputGeneration = 0
 local selectedIndex = 1
 local scrollGeneration = 0
@@ -168,6 +170,31 @@ local function followSelection(itemCount)
         scrollAtBottom = true
         scrollToBottomRevision += 1
     end
+end
+
+local function itemIdentity(item)
+    if item == nil then return nil end
+    if item.path ~= nil then return "application:" .. item.id .. "\0" .. item.path end
+    if item.dispatch ~= nil then return "action:" .. item.id end
+    return "category:" .. item.id
+end
+
+local function restoreSelectedItem(identity)
+    if identity == nil then return end
+
+    local items = matchingItems()
+    for index, item in ipairs(items) do
+        if itemIdentity(item) == identity then
+            selectedIndex = index
+            followSelection(#items)
+            return
+        end
+    end
+
+    -- The selected item disappeared during the refresh. Fall back to the
+    -- first current result instead of retaining a now-ambiguous row number.
+    selectedIndex = 1
+    followSelection(#items)
 end
 
 local function closeAndRun(argv)
@@ -396,18 +423,33 @@ render = function(precomputedItems)
     }))
 end
 
+local startApplicationLoad
+
 local function loadApplications()
-    if applicationsLoading or applicationsLoaded then return end
+    applicationRefreshPending = true
+    if applicationsLoading then return end
+    startApplicationLoad()
+end
+
+startApplicationLoad = function()
+    if applicationsLoading or not applicationRefreshPending then return end
+
+    applicationRefreshPending = false
+    applicationLoadGeneration += 1
+    local loadGeneration = applicationLoadGeneration
     applicationsLoading = true
     local script = noctalia.pluginDir() .. "/list-applications.sh"
     noctalia.runAsync({ script }, function(result)
+        if loadGeneration ~= applicationLoadGeneration then return end
         applicationsLoading = false
         if result.exitCode ~= 0 then
             noctalia.log("command-center application index failed: " .. (result.stderr or "unknown error"))
+            if applicationRefreshPending then startApplicationLoad() end
             if isOpen then render() end
             return
         end
 
+        local selectedIdentity = isOpen and itemIdentity(matchingItems()[selectedIndex]) or nil
         local loaded = {}
         for line in string.gmatch(result.stdout or "", "[^\n]+") do
             local fields = splitTabs(line)
@@ -424,11 +466,16 @@ local function loadApplications()
         end
         applications = loaded
         applicationsLoaded = true
-        if isOpen then render() end
+        if applicationRefreshPending then startApplicationLoad() end
+        if isOpen then
+            restoreSelectedItem(selectedIdentity)
+            render()
+        end
     end, 10000)
 end
 
 function onOpen(_context)
+    loadApplications()
     isOpen = true
     query = ""
     currentCategory = nil
@@ -436,7 +483,6 @@ function onOpen(_context)
     resetScrollToTop()
     inputGeneration += 1
     render()
-    loadApplications()
 end
 
 function onClose()
