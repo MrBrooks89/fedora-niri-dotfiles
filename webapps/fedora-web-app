@@ -1,0 +1,362 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Create and manage Chromium app-mode launchers without evaluating user input.
+
+readonly APP_PREFIX="fedora-web-app-"
+readonly SCRIPT_PATH="$(readlink -f -- "${BASH_SOURCE[0]}")"
+
+die() {
+    printf 'ERROR: %s\n' "$*" >&2
+    exit 2
+}
+
+notify_error() {
+    local summary="$1"
+    local body="$2"
+
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send --app-name="Web Apps" --urgency=normal "$summary" "$body" || true
+    fi
+    printf 'ERROR: %s: %s\n' "$summary" "$body" >&2
+}
+
+xdg_data_home() {
+    if [[ -n "${XDG_DATA_HOME:-}" && "${XDG_DATA_HOME}" == /* ]]; then
+        printf '%s\n' "$XDG_DATA_HOME"
+    else
+        printf '%s/.local/share\n' "$HOME"
+    fi
+}
+
+readonly DATA_HOME="$(xdg_data_home)"
+readonly CONFIG_DIR="$DATA_HOME/fedora-web-apps"
+readonly APPLICATIONS_DIR="$DATA_HOME/applications"
+
+usage() {
+    cat <<'EOF'
+Usage: fedora-web-app [command] [options]
+
+Create and manage Chromium app-mode launchers under XDG_DATA_HOME.
+
+Commands:
+  add [--id ID] [--name NAME] [--url HTTPS_URL]
+      Create or update a web app. With no options, prompts in a terminal.
+  preset outlook
+      Create or update the Outlook web app.
+  launch --id ID
+      Launch a managed app through Chromium on native Wayland.
+  list
+      List managed app IDs, names, and URLs.
+  remove --id ID
+      Remove a managed launcher and its metadata.
+  --print-browser
+      Print the Chromium executable selected for launch diagnostics.
+  -h, --help
+      Show this help.
+
+Examples:
+  fedora-web-app
+  fedora-web-app add --name "Example Portal" --url https://portal.example.com/
+  fedora-web-app add --id docs --name "Project Docs" --url https://docs.example.com/
+  fedora-web-app preset outlook
+  fedora-web-app list
+  fedora-web-app remove --id docs
+EOF
+}
+
+require_value() {
+    local option="$1"
+    local value="${2:-}"
+    [[ -n "$value" ]] || die "$option requires a value."
+}
+
+valid_id() {
+    [[ "$1" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]]
+}
+
+valid_name() {
+    local pattern='^[A-Za-z0-9][A-Za-z0-9._ -]{0,62}$'
+    [[ "$1" =~ $pattern ]]
+}
+
+valid_url() {
+    local url="$1"
+    local rest authority host port
+    local printable_pattern='^[[:print:]]+$'
+
+    [[ "$url" =~ ^https?:// ]] || return 1
+    [[ "$url" =~ $printable_pattern && "$url" != *[[:space:]]* && "$url" != *\\* ]] || return 1
+
+    if [[ "$url" == https://* ]]; then
+        rest="${url#https://}"
+    else
+        rest="${url#http://}"
+    fi
+    authority="${rest%%[/?#]*}"
+    [[ -n "$authority" && "$authority" != *"@"* ]] || return 1
+
+    if [[ "$authority" == \[* ]]; then
+        [[ "$authority" =~ ^\[[0-9A-Fa-f:]+\](:[0-9]{1,5})?$ ]] || return 1
+        port="${authority##*]}"
+        port="${port#:}"
+    else
+        [[ "$authority" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]{1,5})?$ ]] || return 1
+        host="${authority%%:*}"
+        [[ "$host" != .* && "$host" != *. && "$host" != *..* ]] || return 1
+        port="${authority##*:}"
+        [[ "$port" == "$authority" ]] && port=""
+    fi
+
+    [[ -z "$port" || ("$port" =~ ^[0-9]+$ && 10#$port -le 65535) ]]
+}
+
+slug_from_name() {
+    local name="${1,,}"
+    local slug=""
+    local character
+    local index
+
+    for ((index = 0; index < ${#name}; index++)); do
+        character="${name:index:1}"
+        case "$character" in
+            [a-z0-9]) slug+="$character" ;;
+            [._\ -]) [[ "$slug" == *- ]] || slug+="-" ;;
+        esac
+    done
+
+    slug="${slug#-}"
+    slug="${slug%-}"
+    valid_id "$slug" || die "Could not derive a safe ID from the name; pass --id."
+    printf '%s\n' "$slug"
+}
+
+desktop_quote() {
+    local text="$1"
+    local escaped=""
+    local character
+    local index
+
+    for ((index = 0; index < ${#text}; index++)); do
+        character="${text:index:1}"
+        case "$character" in
+            $'\n'|$'\r') die "The manager path contains a newline and cannot be used in a desktop entry." ;;
+            \\|\"|\$|\`) escaped+="\\$character" ;;
+            *) escaped+="$character" ;;
+        esac
+    done
+    printf '"%s"' "$escaped"
+}
+
+update_desktop_database() {
+    command -v update-desktop-database >/dev/null 2>&1 || return 0
+    update-desktop-database "$APPLICATIONS_DIR" >/dev/null 2>&1 || true
+}
+
+write_atomic() {
+    local destination="$1"
+    local temporary
+
+    temporary="$(mktemp "${destination}.XXXXXX")"
+    cat > "$temporary"
+    mv -f -- "$temporary" "$destination"
+}
+
+write_web_app() {
+    local id="$1"
+    local name="$2"
+    local url="$3"
+    local config_file="$CONFIG_DIR/${APP_PREFIX}${id}.tsv"
+    local desktop_file="$APPLICATIONS_DIR/${APP_PREFIX}${id}.desktop"
+    local desktop_exec
+
+    valid_id "$id" || die "ID must match [a-z0-9][a-z0-9-]{0,62}."
+    valid_name "$name" || die "Name must be 1-63 letters, numbers, spaces, dots, underscores, or hyphens."
+    valid_url "$url" || die "URL must be a well-formed HTTP(S) URL without whitespace, backslashes, or credentials."
+
+    mkdir -p "$CONFIG_DIR" "$APPLICATIONS_DIR"
+    desktop_exec="$(desktop_quote "$SCRIPT_PATH") launch --id $id"
+
+    write_atomic "$desktop_file" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=$name
+Comment=Web app for $url
+Exec=$desktop_exec
+Icon=chromium-browser
+Terminal=false
+Categories=Network;WebBrowser;
+StartupNotify=true
+StartupWMClass=${APP_PREFIX}${id}
+X-Fedora-Web-App-Id=$id
+EOF
+
+    if command -v desktop-file-validate >/dev/null 2>&1; then
+        desktop-file-validate "$desktop_file" || {
+            rm -f -- "$desktop_file"
+            die "Generated desktop entry failed desktop-file-validate."
+        }
+    fi
+
+    write_atomic "$config_file" <<EOF
+$name	$url
+EOF
+    update_desktop_database
+    printf 'Managed web app %q at %s\n' "$id" "$desktop_file"
+}
+
+read_web_app() {
+    local id="$1"
+    local config_file="$CONFIG_DIR/${APP_PREFIX}${id}.tsv"
+    local record_name record_url extra
+
+    valid_id "$id" || die "ID must match [a-z0-9][a-z0-9-]{0,62}."
+    [[ -f "$config_file" && ! -L "$config_file" ]] || return 1
+    IFS=$'\t' read -r record_name record_url extra < "$config_file" || return 1
+    [[ -z "${extra:-}" ]] && valid_name "$record_name" && valid_url "$record_url" || return 1
+    printf '%s\t%s\n' "$record_name" "$record_url"
+}
+
+resolve_browser() {
+    local candidate resolved
+
+    if [[ -n "${WEB_APP_BROWSER:-}" ]]; then
+        if [[ "$WEB_APP_BROWSER" == */* ]]; then
+            [[ -x "$WEB_APP_BROWSER" ]] || die "WEB_APP_BROWSER is not executable: $WEB_APP_BROWSER"
+            printf '%s\n' "$WEB_APP_BROWSER"
+            return 0
+        fi
+        resolved="$(command -v -- "$WEB_APP_BROWSER" || true)"
+        [[ -n "$resolved" ]] || die "WEB_APP_BROWSER was not found on PATH: $WEB_APP_BROWSER"
+        printf '%s\n' "$resolved"
+        return 0
+    fi
+
+    for candidate in chromium-browser chromium; do
+        resolved="$(command -v -- "$candidate" || true)"
+        if [[ -n "$resolved" ]]; then
+            printf '%s\n' "$resolved"
+            return 0
+        fi
+    done
+
+    die "Chromium is unavailable. Install Fedora's chromium package, then try again."
+}
+
+launch_web_app() {
+    local id="$1"
+    local record name url browser
+
+    if ! record="$(read_web_app "$id")"; then
+        notify_error "Web app is not configured" "Create it with: fedora-web-app add --id $id --name NAME --url HTTPS_URL"
+        return 1
+    fi
+    IFS=$'\t' read -r name url <<< "$record"
+
+    if ! browser="$(resolve_browser)"; then
+        notify_error "Chromium is unavailable" "Install Fedora's chromium package, then launch $name again."
+        return 1
+    fi
+
+    exec "$browser" --ozone-platform=wayland "--app=$url"
+}
+
+add_command() {
+    local id=""
+    local name=""
+    local url=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --id)
+                require_value "$1" "${2:-}"
+                id="$2"
+                shift 2
+                ;;
+            --name)
+                require_value "$1" "${2:-}"
+                name="$2"
+                shift 2
+                ;;
+            --url)
+                require_value "$1" "${2:-}"
+                url="$2"
+                shift 2
+                ;;
+            *) die "Unknown add option: $1" ;;
+        esac
+    done
+
+    if [[ -z "$name" || -z "$url" ]]; then
+        [[ -t 0 ]] || die "Noninteractive add requires --name and --url."
+        [[ -n "$name" ]] || read -r -p "Web app name: " name
+        [[ -n "$url" ]] || read -r -p "Website URL (https://...): " url
+    fi
+
+    [[ -n "$id" ]] || id="$(slug_from_name "$name")"
+    write_web_app "$id" "$name" "$url"
+}
+
+remove_command() {
+    [[ "${1:-}" == "--id" ]] || die "remove requires --id ID."
+    require_value "$1" "${2:-}"
+    [[ $# -eq 2 ]] || die "remove accepts only --id ID."
+
+    local id="$2"
+    valid_id "$id" || die "ID must match [a-z0-9][a-z0-9-]{0,62}."
+    rm -f -- "$CONFIG_DIR/${APP_PREFIX}${id}.tsv" "$APPLICATIONS_DIR/${APP_PREFIX}${id}.desktop"
+    update_desktop_database
+    printf 'Removed managed web app %q\n' "$id"
+}
+
+list_command() {
+    local config_file id record
+    local found=0
+
+    [[ -d "$CONFIG_DIR" ]] || return 0
+    for config_file in "$CONFIG_DIR"/${APP_PREFIX}*.tsv; do
+        [[ -f "$config_file" && ! -L "$config_file" ]] || continue
+        id="${config_file##*/${APP_PREFIX}}"
+        id="${id%.tsv}"
+        valid_id "$id" || continue
+        if record="$(read_web_app "$id")"; then
+            printf '%s\t%s\n' "$id" "$record"
+            found=1
+        fi
+    done
+    [[ "$found" -eq 1 ]] || printf 'No managed web apps.\n'
+}
+
+case "${1:-add}" in
+    add)
+        shift || true
+        add_command "$@"
+        ;;
+    preset)
+        [[ "${2:-}" == "outlook" && $# -eq 2 ]] || die "Supported preset: outlook"
+        write_web_app "outlook" "Outlook" "https://outlook.cloud.microsoft/mail/"
+        ;;
+    launch)
+        [[ "${2:-}" == "--id" && $# -eq 3 ]] || die "launch requires --id ID."
+        launch_web_app "$3"
+        ;;
+    list)
+        [[ $# -eq 1 ]] || die "list does not accept arguments."
+        list_command
+        ;;
+    remove)
+        shift
+        remove_command "$@"
+        ;;
+    --print-browser)
+        [[ $# -eq 1 ]] || die "--print-browser does not accept arguments."
+        resolve_browser
+        ;;
+    -h|--help)
+        usage
+        ;;
+    *)
+        die "Unknown command: $1"
+        ;;
+esac

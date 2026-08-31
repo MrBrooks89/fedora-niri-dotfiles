@@ -48,6 +48,9 @@ fedora-niri-dotfiles/
 │   ├── fedora-reminder
 │   └── install.sh
 ├── satty/
+├── webapps/
+│   ├── fedora-web-app
+│   └── tests/
 ├── .zshrc
 ├── starship.toml
 ├── .gitignore
@@ -71,6 +74,8 @@ repo/satty             → ~/.config/satty
 repo/codex/skills/*    → ~/.codex/skills/<skill-name>
 repo/chatgpt/chatgpt.desktop
                        → ~/.local/share/applications/chatgpt.desktop
+repo/webapps/fedora-web-app
+                       → ~/.local/bin/fedora-web-app
 ```
 
 Existing configs are backed up before links are created.
@@ -508,8 +513,9 @@ Mod+P { spawn-sh "noctalia msg panel-toggle session"; }
 `noctalia/plugins/command-center/`. Its root contains six categories and its
 search covers installed desktop applications plus leaf actions. `Tools →
 Sharing → Open LocalSend` launches LocalSend's supported graphical sharing
-workflow. The remaining launcher shortcuts open Noctalia's focused utility
-providers directly:
+workflow, and `Tools → Sharing → Open Outlook Web App` launches the managed
+Outlook preset. The remaining launcher shortcuts open Noctalia's focused
+utility providers directly:
 
 - `Mod+D` opens the calculator (`/calc`).
 - `Mod+Shift+D` opens the emoji picker (`/emo`).
@@ -573,6 +579,33 @@ explaining how to add it instead of failing silently.
 LocalSend documents that incoming TCP and UDP on port `53317` must be allowed
 for nearby-device transfers. See the upstream [LocalSend README](https://github.com/localsend/localsend#readme)
 and its [Flathub listing](https://flathub.org/apps/org.localsend.localsend_app).
+
+### Web apps
+
+The bootstrap installs Fedora's `chromium` package and links the reusable
+`fedora-web-app` command into `~/.local/bin`. It also provisions Outlook as a
+managed web app at `https://outlook.cloud.microsoft/mail/`. Chromium launches
+each web app natively on Wayland with `--ozone-platform=wayland --app=URL`.
+
+Run `fedora-web-app` in a terminal for an interactive name-and-URL prompt, or
+use its safe noninteractive form for scripts and presets:
+
+```bash
+fedora-web-app add --id docs --name "Project Docs" --url https://docs.example.com/
+fedora-web-app preset outlook
+fedora-web-app list
+fedora-web-app remove --id docs
+```
+
+The manager accepts only HTTP(S) URLs without credentials, whitespace, or
+backslashes, and restricts names and IDs before writing XDG desktop entries.
+It stores metadata and launchers under `$XDG_DATA_HOME` (or
+`$HOME/.local/share` when unset); a relative `XDG_DATA_HOME` is ignored safely
+in favor of `$HOME/.local/share`.
+Generated entries invoke the
+manager with a fixed ID, so URLs are never interpolated into shell commands or
+executed from desktop-entry content. The Fedora `chromium` package supplies
+the `chromium-browser` launcher and icon used by these entries.
 
 ### ChatGPT desktop
 

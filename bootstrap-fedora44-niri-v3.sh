@@ -308,7 +308,7 @@ fi
 
 echo "==> Installing niri/Noctalia desktop components"
 sudo dnf -y install \
-    niri noctalia kitty firefox dolphin libnotify \
+    niri noctalia kitty firefox chromium dolphin libnotify desktop-file-utils \
     libcanberra-gtk3 sound-theme-freedesktop \
     pipewire wireplumber \
     xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-kde \
@@ -683,11 +683,15 @@ backup_and_link "$DOTFILES_DIR/nvim"          "$HOME/.config/nvim"
 backup_and_link "$DOTFILES_DIR/btop"          "$HOME/.config/btop"
 backup_and_link "$DOTFILES_DIR/noctalia"      "$HOME/.config/noctalia"
 backup_and_link "$DOTFILES_DIR/satty"         "$HOME/.config/satty"
+backup_and_link "$DOTFILES_DIR/webapps/fedora-web-app" "$HOME/.local/bin/fedora-web-app"
 for skill_dir in "$DOTFILES_DIR"/codex/skills/*; do
     [[ -d "$skill_dir" ]] || continue
     backup_and_link "$skill_dir" "$HOME/.codex/skills/$(basename "$skill_dir")"
 done
 backup_and_link "$DOTFILES_DIR/chatgpt/chatgpt.desktop" "$HOME/.local/share/applications/chatgpt.desktop"
+
+echo "==> Provisioning the Outlook web app"
+"$HOME/.local/bin/fedora-web-app" preset outlook
 
 echo "==> Installing Fedora reminder service"
 "$DOTFILES_DIR/reminders/install.sh"
