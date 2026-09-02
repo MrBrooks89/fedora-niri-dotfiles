@@ -95,3 +95,6 @@ if [[ -o interactive ]] && [[ -x "$HOME/.local/bin/notify-command-failure" ]]; t
     ${precmd_functions:#_notify_failed_command_for_diagnosis}
   )
 fi
+
+# opencode
+export PATH="$HOME/.opencode/bin:$PATH"
