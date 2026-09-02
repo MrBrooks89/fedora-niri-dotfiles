@@ -1,0 +1,4 @@
+interface:
+  display_name: "Noctalia Command Center QA"
+  short_description: "Test command-center and capture workflows"
+  default_prompt: "Use $noctalia-command-center-qa to review the current command-center changes for regressions."

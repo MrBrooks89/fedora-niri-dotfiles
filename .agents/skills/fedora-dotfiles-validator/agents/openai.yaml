@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fedora Dotfiles Validator"
+  short_description: "Run read-only dotfiles validation checks"
+  default_prompt: "Use $fedora-dotfiles-validator to validate the current changes without modifying files."
