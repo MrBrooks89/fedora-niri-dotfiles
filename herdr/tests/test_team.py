@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import atexit, importlib.util, json, os, shutil, subprocess, sys, tempfile, unittest
+import atexit, importlib.util, json, os, re, shutil, subprocess, sys, tempfile, unittest
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -36,7 +36,7 @@ class EndToEnd(unittest.TestCase):
         result=h.run("--repair"); self.assertEqual(result.returncode,0,result.stderr); added=h.state()["mutations"][before:]; self.assertEqual(sum(x.startswith("pane split") for x in added),1); self.assertEqual(sum("agent start security" in x for x in added),1)
 
     def test_partial_failure_retry_converges(self):
-        state=pristine(); state["error_on"]="agent start integration --kind codex --pane opaque-pane-3"; h=Harness(state)
+        state=pristine(); state["error_on"]="agent start integration --kind opencode --pane opaque-pane-3"; h=Harness(state)
         first=h.run("--setup"); self.assertNotEqual(first.returncode,0); state=h.state(); self.assertGreater(len(state["mutations"]),0); state.pop("error_on"); h.state_path.write_text(json.dumps(state))
         second=h.run("--repair"); self.assertEqual(second.returncode,0,second.stderr); self.assertEqual(len(h.state()["agents"]),6)
 
@@ -61,7 +61,7 @@ class EndToEnd(unittest.TestCase):
         state=h.state(); state.pop("start_not_ready_role"); next(a for a in state["agents"] if a["name"]=="coordinator")["agent_status"]="idle"; next(p for p in state["panes"] if p["pane_id"]=="opaque-pane-1")["agent_status"]="idle"; h.state_path.write_text(json.dumps(state)); third=h.run("--repair"); self.assertEqual(third.returncode,0,third.stderr); self.assertEqual(sum(x.startswith("agent start coordinator") for x in h.state()["mutations"]),1); self.assertEqual(sum(x.startswith("agent prompt coordinator") for x in h.state()["mutations"]),1)
 
     def test_delayed_restore_settles_without_replacement(self):
-        state=pristine(); state["workspaces"][0]["label"]="Dotfiles Team"; state["tabs"][0]["label"]="Build"; pane=state["panes"][0]; pane["agent_session"]={"kind":"id","value":"saved"}; state["pending_agent"]={**pane,"name":"coordinator","agent":"codex","agent_status":"idle"}; state["restore_after_reads"]=2
+        state=pristine(); state["workspaces"][0]["label"]="Dotfiles Team"; state["tabs"][0]["label"]="Build"; pane=state["panes"][0]; pane["agent_session"]={"kind":"id","value":"saved"}; state["pending_agent"]={**pane,"name":"coordinator","agent":"opencode","agent_status":"idle"}; state["restore_after_reads"]=2
         # Remaining topology is intentionally incomplete, but the restored role must not be started again.
         h=Harness(state); result=h.run("--dry-run"); self.assertEqual(result.returncode,0,result.stderr); self.assertFalse(any("agent start coordinator" in x for x in h.state()["mutations"]))
 
@@ -71,7 +71,7 @@ class EndToEnd(unittest.TestCase):
             with self.subTest(name=name):
                 state=pristine(); state["workspaces"][0]["label"]="Dotfiles Team"; state["tabs"][0]["label"]="Build"; change(state); h=Harness(state); result=h.run("--repair"); self.assertNotEqual(result.returncode,0); self.assertEqual(h.state()["mutations"],[])
 
-    def _agent(self,state,role,tab,kind="codex",status="idle"):
+    def _agent(self,state,role,tab,kind="opencode",status="idle"):
         if tab=="Review": state["tabs"].append({"tab_id":"opaque-review","workspace_id":"opaque-workspace-1","label":"Review"}); state["panes"].append({"pane_id":"opaque-review-pane","tab_id":"opaque-review","workspace_id":"opaque-workspace-1","cwd":str(ROOT)}); pane=state["panes"][-1]
         else: pane=state["panes"][0]
         pane.update({"agent":kind,"agent_status":status,"agent_session":{"kind":"id","value":"s"}}); state["agents"].append({**pane,"name":role})
@@ -90,7 +90,7 @@ class ManifestValidation(unittest.TestCase):
         original=(ROOT/"herdr/team.toml").read_text()
         for replacement in ("max_agents_per_tab = 0","max_agents_per_tab = true","workflow_version = 1"):
             with self.subTest(replacement=replacement), tempfile.TemporaryDirectory() as tmp:
-                text=original.replace("max_agents_per_tab = 4",replacement) if replacement.startswith("max") else original.replace('workflow_version = "1.0.0"',replacement)
+                text=original.replace("max_agents_per_tab = 4",replacement) if replacement.startswith("max") else re.sub(r'workflow_version = "[^"]*"',replacement,original)
                 path=Path(tmp)/"bad.toml"; path.write_text(text)
                 with self.assertRaises(MODULE.WorkflowError): MODULE.load_manifest(ROOT,path)
 

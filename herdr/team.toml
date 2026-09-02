@@ -1,8 +1,8 @@
 schema_version = 1
-workflow_version = "1.0.0"
+workflow_version = "1.1.0"
 session = "fedora-niri-dotfiles"
 workspace = "Dotfiles Team"
-agent_kind = "codex"
+agent_kind = "opencode"
 max_agents_per_tab = 4
 
 [[tabs]]

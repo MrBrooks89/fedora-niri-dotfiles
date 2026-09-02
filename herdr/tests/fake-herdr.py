@@ -7,7 +7,7 @@ state_path=Path(os.environ["FAKE_HERDR_STATE"])
 state=json.loads(state_path.read_text())
 args=sys.argv[1:]
 if args==["--version"]: print("herdr 0.8.2"); raise SystemExit
-if args==["integration","status"]: print("codex: current (v8) (/tmp/fake)"); raise SystemExit
+if args==["integration","status"]: print("opencode: current (v10) (/tmp/fake)"); raise SystemExit
 selected=False
 if args[:2]==["--session","fedora-niri-dotfiles"]: selected=True; args=args[2:]
 command=" ".join(args)
@@ -50,7 +50,7 @@ if args[:2]==["pane","split"]:
     mutation(); anchor=next(p for p in state["panes"] if p["pane_id"]==option("--pane")); pid=f"opaque-pane-{state['next_pane']}"; state["next_pane"]+=1
     state["panes"].append({"pane_id":pid,"tab_id":anchor["tab_id"],"workspace_id":anchor["workspace_id"],"cwd":option("--cwd")}); response({"pane":{"pane_id":pid}}); raise SystemExit
 if args[:2]==["agent","start"]:
-    mutation(); role=args[2]; pane=next(p for p in state["panes"] if p["pane_id"]==option("--pane")); pane.update({"agent":"codex","agent_status":"idle","agent_session":{"kind":"id","value":"session-"+role}})
+    mutation(); role=args[2]; pane=next(p for p in state["panes"] if p["pane_id"]==option("--pane")); pane.update({"agent":"opencode","agent_status":"idle","agent_session":{"kind":"id","value":"session-"+role}})
     state["agents"].append({**pane,"name":role})
     if state.get("start_fail_after_role")==role:
         save(); print(json.dumps({"error":{"message":"start returned failure after retaining name"}}),file=sys.stderr); raise SystemExit(1)

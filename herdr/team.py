@@ -56,7 +56,7 @@ def load_manifest(root: Path, path: Path | None = None) -> dict[str, Any]:
     if data["session"] == "default" or not ROLE_RE.fullmatch(data["session"]): raise WorkflowError("unsafe session name")
     limit = data["max_agents_per_tab"]
     if type(limit) is not int or not 1 <= limit <= 4: raise WorkflowError("max_agents_per_tab must be an integer from 1 through 4")
-    if data["agent_kind"] != "codex" or type(data["tabs"]) is not list or len(data["tabs"]) != 2: raise WorkflowError("manifest must declare Codex and exactly two tabs")
+    if data["agent_kind"] != "opencode" or type(data["tabs"]) is not list or len(data["tabs"]) != 2: raise WorkflowError("manifest must declare opencode and exactly two tabs")
     roles, labels = [], []
     for tab in data["tabs"]:
         if type(tab) is not dict or set(tab) != {"label","roles"} or type(tab["label"]) is not str or type(tab["roles"]) is not list: raise WorkflowError("invalid tab declaration")
@@ -96,7 +96,7 @@ def check_version(binary):
 
 def check_integration(binary):
     proc = subprocess.run([binary,"integration","status"], text=True, stdout=subprocess.PIPE)
-    if proc.returncode or not re.search(r"^codex: current \(v\d+\)",proc.stdout,re.MULTILINE): raise WorkflowError("Codex integration is not current; install it explicitly")
+    if proc.returncode or not re.search(r"^opencode: current \(v\d+\)",proc.stdout,re.MULTILINE): raise WorkflowError("opencode integration is not current; install it explicitly")
 
 def identify_session(api: Herdr, env: dict[str,str]):
     required = ("HERDR_SOCKET_PATH","HERDR_PANE_ID","HERDR_TAB_ID","HERDR_WORKSPACE_ID")
@@ -201,7 +201,7 @@ def plan(snapshot,manifest,root,contracts):
     for pane in snapshot.panes:
         cwd=pane.get("cwd")
         if not isinstance(cwd,str) or Path(cwd).resolve()!=root: conflicts.append(f"pane {pane.get('pane_id')} has wrong cwd")
-    if restore_pending(snapshot): conflicts.append("native Codex restore did not settle")
+    if restore_pending(snapshot): conflicts.append("native agent restore did not settle")
     role_tab={r:l for l,roles in desired.items() for r in roles}; named=[a for a in snapshot.agents if a.get("name")]
     for role,expected in role_tab.items():
         matches=[a for a in named if a.get("name")==role]
