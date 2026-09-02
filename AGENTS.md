@@ -23,6 +23,9 @@ Noctalia Greeter handling login.
   directory by `configure-noctalia-greeter.sh`; it is not symlinked.
 - `diagnostics/` owns the opt-in local failure collector, local Codex runner,
   prompts, user timer, and click-to-diagnose command-failure workflow.
+- `.opencode/agent/` defines opencode subagents mirroring the read-only skill
+  roles (dotfiles validator, bootstrap auditor, command-center QA). Their
+  bodies delegate to the matching `.agents/skills/<name>/SKILL.md`.
 
 Edit the tracked source files, not the linked destinations, unless the user
 explicitly asks for a live-only experiment. Preserve unrelated user changes.
