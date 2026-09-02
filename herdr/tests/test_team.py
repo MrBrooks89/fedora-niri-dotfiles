@@ -71,6 +71,16 @@ class EndToEnd(unittest.TestCase):
             with self.subTest(name=name):
                 state=pristine(); state["workspaces"][0]["label"]="Dotfiles Team"; state["tabs"][0]["label"]="Build"; change(state); h=Harness(state); result=h.run("--repair"); self.assertNotEqual(result.returncode,0); self.assertEqual(h.state()["mutations"],[])
 
+    def test_unpristine_adoption_reports_specific_reasons(self):
+        cases={"agent":lambda s: s.update({"agents":[{"pane_id":"opaque-pane-1","name":"coordinator"}]}),"process":lambda s: s["processes"].update({"opaque-pane-1":[{"name":"opencode"}]}),"cwd":lambda s: s["panes"].__setitem__(0,{**s["panes"][0],"cwd":"/tmp"})}
+        for name,change in cases.items():
+            with self.subTest(name=name):
+                state=pristine(); change(state); h=Harness(state); result=h.run("--dry-run")
+                self.assertNotEqual(result.returncode,0)
+                self.assertIn("sole initial workspace is not pristine and cannot be adopted",result.stderr)
+                self.assertIn({"agent":"agent(s) already occupy the initial workspace; quit the agent and rerun from the idle shell pane","process":"is not an idle shell; exit its foreground processes and rerun","cwd":"cwd is not the repository root"}[name],result.stderr)
+                self.assertEqual(h.state()["mutations"],[])
+
     def _agent(self,state,role,tab,kind="opencode",status="idle"):
         if tab=="Review": state["tabs"].append({"tab_id":"opaque-review","workspace_id":"opaque-workspace-1","label":"Review"}); state["panes"].append({"pane_id":"opaque-review-pane","tab_id":"opaque-review","workspace_id":"opaque-workspace-1","cwd":str(ROOT)}); pane=state["panes"][-1]
         else: pane=state["panes"][0]

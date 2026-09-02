@@ -189,8 +189,14 @@ def plan(snapshot,manifest,root,contracts):
     if len(snapshot.workspaces)!=1 or snapshot.workspace is None: return [],["session must contain exactly one workspace"]
     managed=snapshot.workspace.get("label")==manifest["workspace"]
     if not managed:
-        pristine=len(snapshot.tabs)==1 and len(snapshot.panes)==1 and not snapshot.agents and snapshot.panes[0].get("cwd") and Path(snapshot.panes[0]["cwd"]).resolve()==root and snapshot.processes.get(snapshot.panes[0].get("pane_id"))==[]
-        if not pristine: return [],["sole initial workspace is not pristine and cannot be adopted"]
+        reasons=[]
+        if len(snapshot.tabs)!=1 or len(snapshot.panes)!=1: reasons.append(f"expected one tab and one pane, found {len(snapshot.tabs)} tab(s) and {len(snapshot.panes)} pane(s)")
+        if snapshot.agents: reasons.append(f"{len(snapshot.agents)} agent(s) already occupy the initial workspace; quit the agent and rerun from the idle shell pane")
+        if len(snapshot.tabs)==1 and len(snapshot.panes)==1:
+            pane=snapshot.panes[0]; cwd=pane.get("cwd")
+            if not isinstance(cwd,str) or Path(cwd).resolve()!=root: reasons.append(f"pane {pane.get('pane_id')} cwd is not the repository root")
+            if snapshot.processes.get(pane.get("pane_id"))!=[]: reasons.append(f"pane {pane.get('pane_id')} is not an idle shell; exit its foreground processes and rerun")
+        if reasons: return [],["sole initial workspace is not pristine and cannot be adopted"+"".join(f" ({reason})" for reason in reasons)]
         ops += [Operation("rename_workspace",target=str(snapshot.workspace.get("workspace_id"))),Operation("rename_tab",tab="Build",target=str(snapshot.tabs[0].get("tab_id")))]
     desired={t["label"]:t["roles"] for t in manifest["tabs"]}; live_labels=[t.get("label") for t in snapshot.tabs]
     if managed:
