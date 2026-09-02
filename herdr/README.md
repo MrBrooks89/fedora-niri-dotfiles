@@ -14,7 +14,7 @@ documentation.
 | Build | `coordinator`, `implementation`, `integration` |
 | Review | `validation`, `security`, `release` |
 
-Each tab contains three Codex agents, below Herdr's four-agent-per-tab limit.
+Each tab contains three opencode agents, below Herdr's four-agent-per-tab limit.
 The prompts constrain authority: the coordinator assigns work; implementation
 is the normal writer; integration freezes a coherent commit; validation and
 security review that commit; release audits readiness. No role may silently
@@ -23,15 +23,15 @@ configuration.
 
 ## Prerequisites and restore
 
-- Herdr 0.8.2 and Codex are installed.
-- `herdr integration status` reports `codex: current`.
-- Codex hooks are enabled as documented by Herdr.
+- Herdr 0.8.2 and opencode are installed.
+- `herdr integration status` reports `opencode: current`.
+- opencode hooks are enabled as documented by Herdr.
 - Herdr's `session.resume_agents_on_restore` remains enabled (the default).
 
 If integration is missing or outdated, inspect the change and explicitly run:
 
 ```bash
-herdr integration install codex
+herdr integration install opencode
 ```
 
 Inspect the documented default with `herdr --default-config`. If your existing
@@ -43,16 +43,17 @@ in `~/.config/herdr/config.toml`:
 resume_agents_on_restore = true
 ```
 
-The setup tool checks that the Codex integration is current but deliberately
+The setup tool checks that the opencode integration is current but deliberately
 does not install it or overwrite this user-owned configuration.
 
-The repository never edits `~/.config/herdr/config.toml`, `~/.codex`, or
-Herdr's `session.json`. Do not copy those files into Git. Prompt changes apply
+The repository never edits `~/.config/herdr/config.toml`, `~/.codex`,
+`~/.config/opencode`, or Herdr's `session.json`. Do not copy those files into
+Git. Prompt changes apply
 only when a role is newly started or explicitly prompted; they do not rewrite a
 running conversation.
 
 Client detach/reattach preserves running processes. A server restart restores
-Herdr's recorded layout and can resume Codex conversations when the official
+Herdr's recorded layout and can resume opencode conversations when the official
 integration supplied a valid session reference. Terminal scrollback is not
 durable task memory. If state is missing, the tracked setup tool can recreate
 the topology, but it cannot reconstruct a lost conversation.
@@ -182,7 +183,7 @@ rework state. Direct blocked-to-release/complete jumps and stale resumes fail.
 
 After a client loss, run plain `herdr` from the checkout and allow restore to
 settle. After a server restart, inspect `herdr agent list` before considering
-repair. If a Codex pane fell back to a shell, verify the integration and decide
+repair. If an opencode pane fell back to a shell, verify the integration and decide
 explicitly whether losing its old conversation is acceptable. Run `--check`,
 then `--dry-run`, then `--repair` only for additive recovery.
 
