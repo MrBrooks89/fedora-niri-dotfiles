@@ -25,8 +25,8 @@ wallpaper_placement = "attached"
 open_near_click_wallpaper = true
 
 [theme]
-source = "custom"
-custom_palette = "DraculaMrBrooks"
+source = "wallpaper"
+wallpaper_scheme = "m3-tonal-spot"
 mode = "dark"
 pure_black_dark = false
 
@@ -79,7 +79,6 @@ margin_edge = 0
 margin_opposite_edge = 0
 padding = 14
 widget_spacing = 6
-hover_highlit = true
 scale = 1.0
 font_scale = 1.0
 font_weight = 500
@@ -132,7 +131,7 @@ type = "clock"
 type = "control-center"
 
 [widget.notification]
-type = "notification"
+type = "notifications"
 
 [control_center]
 show_shortcut_labels = true
