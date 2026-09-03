@@ -588,21 +588,26 @@ mkdir -p \
 
 echo "==> Installing Rosé Pine cursor theme"
 
-ROSE_PINE_CURSOR_DIR="$HOME/.local/share/icons/BreezeX-RosePine"
+# System-wide so the greetd greeter user can resolve the theme; xcursor
+# matches by directory name.
+ROSE_PINE_CURSOR_DIR="/usr/share/icons/BreezeX-RosePine-Linux"
 ROSE_PINE_CURSOR_URL="https://github.com/rose-pine/cursors/releases/latest/download/BreezeX-RosePine-Linux.tar.xz"
 
 if [[ ! -d "$ROSE_PINE_CURSOR_DIR" ]]; then
     TMP_CURSOR="$(mktemp --suffix=.tar.xz)"
 
-    mkdir -p "$HOME/.local/share/icons"
+    sudo mkdir -p /usr/share/icons
 
     curl -fL \
         --connect-timeout 60 \
         "$ROSE_PINE_CURSOR_URL" \
         -o "$TMP_CURSOR"
 
-    tar -xJf "$TMP_CURSOR" \
-        -C "$HOME/.local/share/icons"
+    # --no-same-owner: root tar defaults to restoring the archive's stored
+    # ownership (upstream's uid/gid); system files must be root:root.
+    sudo tar -xJf "$TMP_CURSOR" \
+        --no-same-owner \
+        -C /usr/share/icons
 
     rm -f "$TMP_CURSOR"
 else
@@ -611,7 +616,7 @@ fi
 
 echo "==> Setting Rosé Pine cursor theme"
 
-gsettings set org.gnome.desktop.interface cursor-theme 'BreezeX-RosePine'
+gsettings set org.gnome.desktop.interface cursor-theme 'BreezeX-RosePine-Linux'
 gsettings set org.gnome.desktop.interface cursor-size 24
 
 if [[ -n "$DOTFILES_REPO" ]]; then

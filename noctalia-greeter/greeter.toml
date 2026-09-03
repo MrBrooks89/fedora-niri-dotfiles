@@ -23,7 +23,7 @@ allow_empty_password = false
 [cursor]
 path = "/usr/share/icons"
 size = 24
-theme = "BreezeX-RosePine"
+theme = "BreezeX-RosePine-Linux"
 
 [idle]
 timeout = 300
