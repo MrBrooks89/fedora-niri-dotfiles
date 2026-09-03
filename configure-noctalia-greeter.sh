@@ -17,6 +17,7 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly TRACKED_CONFIG="$SCRIPT_DIR/noctalia-greeter/greeter.toml"
 readonly TRACKED_SYNC_DEFAULTS="$SCRIPT_DIR/noctalia-greeter/sync.toml"
 readonly TRACKED_TMPFILES="$SCRIPT_DIR/noctalia-greeter/noctalia-greeter.conf"
+readonly TRACKED_USER_SESSIONS="$SCRIPT_DIR/noctalia-greeter/systemd-user-sessions.service"
 readonly GREETD_USER="greetd"
 readonly GREETER_STATE_DIR="/var/lib/noctalia-greeter"
 
@@ -51,7 +52,8 @@ chmod 0755 "$snapshot_dir"
 python3 - \
     "$TRACKED_CONFIG" "$snapshot_dir/greeter.toml" \
     "$TRACKED_SYNC_DEFAULTS" "$snapshot_dir/sync.toml" \
-    "$TRACKED_TMPFILES" "$snapshot_dir/noctalia-greeter.conf" <<'PY'
+    "$TRACKED_TMPFILES" "$snapshot_dir/noctalia-greeter.conf" \
+    "$TRACKED_USER_SESSIONS" "$snapshot_dir/systemd-user-sessions.service" <<'PY'
 import os
 import stat
 import sys
@@ -84,8 +86,9 @@ PY
 readonly SNAPSHOT_CONFIG="$snapshot_dir/greeter.toml"
 readonly SNAPSHOT_SYNC_DEFAULTS="$snapshot_dir/sync.toml"
 readonly SNAPSHOT_TMPFILES="$snapshot_dir/noctalia-greeter.conf"
+readonly SNAPSHOT_USER_SESSIONS="$snapshot_dir/systemd-user-sessions.service"
 
-python3 - "$SNAPSHOT_CONFIG" "$SNAPSHOT_SYNC_DEFAULTS" "$SNAPSHOT_TMPFILES" <<'PY'
+python3 - "$SNAPSHOT_CONFIG" "$SNAPSHOT_SYNC_DEFAULTS" "$SNAPSHOT_TMPFILES" "$SNAPSHOT_USER_SESSIONS" <<'PY'
 import sys
 import tomllib
 
@@ -112,6 +115,33 @@ expected_tmpfiles = (
 with open(sys.argv[3], encoding="utf-8") as tmpfiles_file:
     if tmpfiles_file.read() != expected_tmpfiles:
         raise SystemExit("error: unexpected noctalia-greeter tmpfiles directive")
+
+# The systemd-user-sessions override must keep the vendor unit's ordering minus
+# network.target, and must keep executing the vendor binary. Anything else means
+# the tracked file drifted from the reviewed override.
+with open(sys.argv[4], encoding="utf-8") as user_sessions_file:
+    user_sessions_lines = user_sessions_file.read().splitlines()
+expected_after = "After=remote-fs.target nss-user-lookup.target home.mount"
+after_lines = [line for line in user_sessions_lines if line.startswith("After=")]
+if after_lines != [expected_after]:
+    raise SystemExit(
+        "error: systemd-user-sessions override must order exactly "
+        f"{expected_after} (network.target removed)"
+    )
+expected_exec_lines = [
+    "ExecStart=/usr/lib/systemd/systemd-user-sessions start",
+    "ExecStop=/usr/lib/systemd/systemd-user-sessions stop",
+]
+exec_lines = [
+    line
+    for line in user_sessions_lines
+    if line.startswith(("ExecStart=", "ExecStop="))
+]
+if exec_lines != expected_exec_lines:
+    raise SystemExit(
+        "error: systemd-user-sessions override must execute "
+        "/usr/lib/systemd/systemd-user-sessions start and stop"
+    )
 PY
 
 # /var/lib is root-owned, so reject a replaced state-directory entry before
@@ -148,6 +178,12 @@ for state_file in sync.toml state.toml appearance.json greeter.toml; do
 done
 install -d -m 0755 /etc/tmpfiles.d
 install -m 0644 "$SNAPSHOT_TMPFILES" /etc/tmpfiles.d/noctalia-greeter.conf
+
+# Stage the full systemd-user-sessions override (vendor unit minus the
+# network.target wait) for the next boot. Files only: no daemon-reload or
+# service restart is issued from inside the graphical session.
+install -d -m 0755 /etc/systemd/system
+install -m 0644 "$SNAPSHOT_USER_SESSIONS" /etc/systemd/system/systemd-user-sessions.service
 
 if [[ "$seed_initial_sync" == true ]]; then
     if runuser -u "$GREETD_USER" -- python3 -c '
@@ -230,3 +266,5 @@ user = "greetd"
 GREETD_CONFIG
 
 echo "Noctalia Greeter system configuration staged. GDM and greetd service state is unchanged."
+echo "The systemd-user-sessions override in /etc/systemd/system takes effect on the next boot."
+echo "Re-diff noctalia-greeter/systemd-user-sessions.service against the vendor unit on major systemd updates."
