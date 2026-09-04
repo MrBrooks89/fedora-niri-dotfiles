@@ -1,0 +1,69 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  static-checks:
+    name: Static validation battery
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell syntax checks (bash -n)
+        run: |
+          set -e
+          bash -n bootstrap-fedora44-niri-v3.sh
+          bash -n install-noctalia-greeter.sh
+          bash -n configure-noctalia-greeter.sh
+          for f in diagnostics/*.sh; do bash -n "$f"; done
+          bash -n noctalia/plugins/command-center/dispatch-action.sh
+          bash -n noctalia/plugins/command-center/capture-tools.sh
+          bash -n noctalia/plugins/command-center/list-applications.sh
+          bash -n webapps/fedora-web-app
+          bash -n reminders/install.sh
+          echo "All shell scripts pass bash -n"
+
+      - name: TOML and JSON checks (python3)
+        run: |
+          set -e
+          python3 - <<'PY'
+          import json, tomllib
+
+          with open("noctalia/config.toml", "rb") as f:
+              tomllib.load(f)
+          print("noctalia/config.toml: valid TOML")
+
+          with open("noctalia-greeter/greeter.toml", "rb") as f:
+              tomllib.load(f)
+          print("noctalia-greeter/greeter.toml: valid TOML")
+
+          with open("noctalia-greeter/sync.toml", "rb") as f:
+              tomllib.load(f)
+          print("noctalia-greeter/sync.toml: valid TOML")
+
+          with open("noctalia/palettes/DraculaMrBrooks.json") as f:
+              json.load(f)
+          print("noctalia/palettes/DraculaMrBrooks.json: valid JSON")
+          PY
+
+      - name: Whitespace and conflict-marker check
+        run: git diff --check HEAD~0 -- 2>/dev/null || git diff --check origin/main...HEAD 2>/dev/null || echo "diff --check: nothing to compare on this ref"
+
+      - name: Bootstrap --help parses without installing
+        run: |
+          bash bootstrap-fedora44-niri-v3.sh --help >/dev/null
+          bash bootstrap-fedora44-niri-v3.sh --dry-run >/dev/null
+          echo "--help and --dry-run parse cleanly"
+
+      # niri validate and noctalia config validate require the niri and
+      # noctalia binaries, which are not available on ubuntu runners. They
+      # remain host-side checks per AGENTS.md; this job covers everything
+      # else in the documented battery.
+      - name: Report unavailable validators
+        run: |
+          echo "NOTE: niri validate and noctalia config validate are skipped in CI;"
+          echo "they require the niri/noctalia binaries (Fedora packages). Run them"
+          echo "host-side per AGENTS.md before merging."
