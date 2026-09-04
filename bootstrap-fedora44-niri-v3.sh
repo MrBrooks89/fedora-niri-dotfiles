@@ -64,6 +64,7 @@ WITH_AUTO_DIAGNOSTICS=0
 CONFIGURE_GITHUB=0
 CONFIGURE_NETWORK=0
 GROUP_MEMBERSHIP_CHANGED=0
+DRY_RUN=0
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_REPO=""
@@ -94,6 +95,8 @@ Options:
   --configure-github       Configure Git identity and authenticate GitHub CLI
   --configure-network      Configure 192.168.4.112/24, gateway/DNS 192.168.4.1
   --all                    Enable all optional software
+  --dry-run                Print the planned actions for the selected flags
+                           and exit without changing anything
   -h, --help               Show this help
 
 Default dotfiles behavior:
@@ -134,6 +137,7 @@ while [[ $# -gt 0 ]]; do
         --with-auto-diagnostics) WITH_AUTO_DIAGNOSTICS=1 ;;
         --configure-github) CONFIGURE_GITHUB=1 ;;
         --configure-network) CONFIGURE_NETWORK=1 ;;
+        --dry-run) DRY_RUN=1 ;;
         --all)
             WITH_DOCKER=1
             WITH_CONTAINERLAB=1
@@ -184,6 +188,35 @@ fi
 
 echo "==> Installing for $INSTALL_USER (uid $INSTALL_UID, home $INSTALL_HOME)"
 
+timestamp="$(date +%Y%m%d-%H%M%S)"
+BACKUP_DIR="$HOME/.dotfiles-backup-$timestamp"
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "==> DRY RUN: no changes will be made. Planned actions:"
+    echo "  - dnf upgrade --refresh, then base CLI/dev/networking packages"
+    echo "  - Enable NetworkManager; reload Intel iwlwifi if Intel wireless present"
+    echo "  - Install niri/Noctalia desktop components; enable power-profiles-daemon"
+    echo "  - Install ChatGPT (OpenAI RPM repo), Teams for Linux, Joplin (COPR)"
+    echo "  - Install Starship; set zsh login shell; create XDG dirs"
+    echo "  - Install Rosé Pine cursor theme system-wide; set GTK dark + portals"
+    [[ "$WITH_SATTY_COPR" -eq 1 ]] && echo "  - [--with-satty-copr] Install Satty from COPR"
+    [[ "$WITH_NERD_FONT" -eq 1 ]] && echo "  - [--with-nerd-font] Install JetBrainsMono Nerd Font"
+    [[ "$WITH_GAMING" -eq 1 ]] && echo "  - [--with-gaming] RPM Fusion, Steam, LACT, Heroic, controller modules"
+    [[ "$WITH_LOCALSEND" -eq 1 ]] && echo "  - [--with-localsend] LocalSend flatpak + firewalld ports"
+    [[ "$WITH_CODEX" -eq 1 ]] && echo "  - [--with-codex] Codex CLI + CodexBar"
+    [[ "$WITH_DOCKER" -eq 1 ]] && echo "  - [--with-docker] Docker CE + docker group"
+    [[ "$WITH_CONTAINERLAB" -eq 1 ]] && echo "  - [--with-containerlab] containerlab + clab_admins group"
+    [[ "$CONFIGURE_GITHUB" -eq 1 ]] && echo "  - [--configure-github] Git identity + gh auth (interactive)"
+    [[ "$CONFIGURE_NETWORK" -eq 1 ]] && echo "  - [--configure-network] Static IP $STATIC_IP via nmcli (interactive)"
+    [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 ]] && echo "  - [--with-auto-diagnostics] diagnostics install.sh"
+    echo "  - Dotfiles source: $DOTFILES_DIR"
+    [[ -n "$DOTFILES_REPO" ]] && echo "    (alternate repo: $DOTFILES_REPO branch: ${DOTFILES_BRANCH:-default})"
+    echo "  - Link configs (backups to $BACKUP_DIR), seed themes, provision web apps"
+    echo "  - Install + configure Noctalia Greeter; enable greetd + graphical.target"
+    echo "  - Interactive steps (GitHub auth, network) still require a terminal"
+    exit 0
+fi
+
 ensure_install_user_group() {
     local group_name="$1"
 
@@ -210,12 +243,13 @@ fi
 CURRENT_MAJOR="$(rpm -E %fedora)"
 if [[ "$CURRENT_MAJOR" != "$FEDORA_MAJOR" ]]; then
     echo "WARNING: written for Fedora $FEDORA_MAJOR; detected Fedora $CURRENT_MAJOR."
-    read -r -p "Continue anyway? [y/N] " answer
-    [[ "$answer" =~ ^[Yy]$ ]] || exit 1
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        echo "         (dry run: skipping the continue prompt)"
+    else
+        read -r -p "Continue anyway? [y/N] " answer
+        [[ "$answer" =~ ^[Yy]$ ]] || exit 1
+    fi
 fi
-
-timestamp="$(date +%Y%m%d-%H%M%S)"
-BACKUP_DIR="$HOME/.dotfiles-backup-$timestamp"
 
 backup_and_link() {
     local source="$1"
