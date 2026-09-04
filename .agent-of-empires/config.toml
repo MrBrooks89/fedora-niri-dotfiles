@@ -1,0 +1,21 @@
+# Agent of Empires — per-repo configuration.
+#
+# Committed so every clone of this repo gets the same session defaults.
+# Hook commands trigger a one-time trust prompt per developer; this file
+# intentionally defines no hooks.
+#
+# Precedence: global config < profile config < this file.
+# Security note: aoe ignores enabled_by_default, default_image, extra_volumes,
+# and mount_ssh from repo config by design — a repo cannot force you into a
+# container or mount your SSH keys. Those live in global/profile config only.
+
+[session]
+# Sessions in this repo default to opencode (the agent stack this repo
+# tracks under .opencode/), not aoe's global ACP default.
+default_tool = "opencode"
+
+[sandbox]
+# GH_TOKEN lets sandboxed sessions push branches and open PRs as the
+# authenticated GitHub user. Set it in the host environment (e.g. ~/.env,
+# which .zshrc sources) — never commit the token itself.
+environment = ["GH_TOKEN"]
