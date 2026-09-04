@@ -804,7 +804,8 @@ if [[ "$WITH_GAMING" -eq 1 ]]; then
         flatpak \
         bluez \
         bluez-tools \
-        joystick-support
+        joystick-support \
+        kernel-modules-extra
 
     echo "==> Installing LACT GPU control daemon from ilyaz/LACT COPR"
     sudo dnf -y copr enable ilyaz/LACT
@@ -819,8 +820,15 @@ if [[ "$WITH_GAMING" -eq 1 ]]; then
     echo "==> Enabling USB and Bluetooth Xbox controller support"
     sudo systemctl enable --now bluetooth
     printf '%s\n' xpad uhid | sudo tee /etc/modules-load.d/gaming-controllers.conf >/dev/null
-    sudo modprobe xpad
-    sudo modprobe uhid
+    # Boot-time loading is staged via modules-load.d above; the immediate
+    # modprobe is only a convenience. Do not abort the bootstrap if the
+    # module is unavailable (e.g. kernel-modules-extra not yet installed
+    # for the running kernel). Keep the failure reason visible.
+    if ! modprobe_msg="$(sudo modprobe xpad 2>&1)"; then
+        echo "    WARNING: xpad not loaded now (${modprobe_msg});"
+        echo "    expected to load at next boot via modules-load.d."
+    fi
+    sudo modprobe uhid 2>/dev/null || true
 fi
 
 if [[ "$WITH_DOCKER" -eq 1 ]]; then
