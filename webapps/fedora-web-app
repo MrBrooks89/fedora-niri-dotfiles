@@ -350,7 +350,15 @@ resolve_browser() {
 # Chromium's manual "another computer" unlock flow.
 recover_stale_profile_lock() {
     local profile_dir="${WEB_APP_CHROMIUM_PROFILE:-$HOME/.config/chromium}"
-    local lock_path target lock_host lock_pid
+    local lock_path target lock_host lock_pid mode
+
+    # Mirror the managed-storage threat model: only recover locks inside a
+    # profile directory the invoking user owns and that is not group/other
+    # writable.
+    [[ -d "$profile_dir" && ! -L "$profile_dir" ]] || return 0
+    [[ "$(stat -c %u -- "$profile_dir")" == "$INVOKING_UID" ]] || return 0
+    mode="$(stat -c %a -- "$profile_dir")" || return 0
+    (( (8#$mode & 0022) == 0 )) || return 0
 
     lock_path="$profile_dir/SingletonLock"
     [[ -L "$lock_path" ]] || return 0
@@ -362,9 +370,12 @@ recover_stale_profile_lock() {
     if kill -0 "$lock_pid" 2>/dev/null; then
         return 0
     fi
-    rm -f -- "$lock_path"
+    if ! rm -f -- "$lock_path"; then
+        notify_error "Could not remove stale Chromium profile lock" "$lock_path"
+        return 1
+    fi
     printf 'Removed stale Chromium profile lock (dead pid %s): %s\n' \
-        "$lock_pid" "$lock_path" >&2
+        "$lock_pid" "$lock_path"
 }
 
 launch_web_app() {
