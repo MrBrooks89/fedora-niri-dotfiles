@@ -341,6 +341,43 @@ resolve_browser() {
     die "Chromium is unavailable. Install Fedora's chromium package, then try again."
 }
 
+# Chromium gates profile access with a SingletonLock symlink whose target is
+# "<hostname>-<pid>". After an unclean exit the lock survives and every later
+# launch refuses to start ("profile appears to be in use"). If the lock names
+# this host and its PID no longer exists, the lock is stale and can be removed;
+# Chromium recreates the cookie/socket files as needed. A live PID (including a
+# reused one) is never touched, and locks naming a different host are left for
+# Chromium's manual "another computer" unlock flow.
+recover_stale_profile_lock() {
+    local profile_dir="${WEB_APP_CHROMIUM_PROFILE:-$HOME/.config/chromium}"
+    local lock_path target lock_host lock_pid mode
+
+    # Mirror the managed-storage threat model: only recover locks inside a
+    # profile directory the invoking user owns and that is not group/other
+    # writable.
+    [[ -d "$profile_dir" && ! -L "$profile_dir" ]] || return 0
+    [[ "$(stat -c %u -- "$profile_dir")" == "$INVOKING_UID" ]] || return 0
+    mode="$(stat -c %a -- "$profile_dir")" || return 0
+    (( (8#$mode & 0022) == 0 )) || return 0
+
+    lock_path="$profile_dir/SingletonLock"
+    [[ -L "$lock_path" ]] || return 0
+    target="$(readlink -- "$lock_path")" || return 0
+    lock_host="${target%-*}"
+    lock_pid="${target##*-}"
+    [[ "$lock_pid" =~ ^[0-9]+$ ]] || return 0
+    [[ "$lock_host" == "$(hostname)" ]] || return 0
+    if kill -0 "$lock_pid" 2>/dev/null; then
+        return 0
+    fi
+    if ! rm -f -- "$lock_path"; then
+        notify_error "Could not remove stale Chromium profile lock" "$lock_path"
+        return 1
+    fi
+    printf 'Removed stale Chromium profile lock (dead pid %s): %s\n' \
+        "$lock_pid" "$lock_path"
+}
+
 launch_web_app() {
     local id="$1"
     local record name url browser
@@ -356,6 +393,7 @@ launch_web_app() {
         return 1
     fi
 
+    recover_stale_profile_lock
     exec "$browser" --ozone-platform=wayland "--app=$url"
 }
 
