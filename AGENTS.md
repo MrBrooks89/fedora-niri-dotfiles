@@ -24,7 +24,8 @@ Noctalia Greeter handling login.
 - `diagnostics/` owns the opt-in local failure collector, local Codex runner,
   prompts, user timer, and click-to-diagnose command-failure workflow.
 - `.opencode/agent/` defines opencode subagents mirroring the read-only skill
-  roles (dotfiles validator, bootstrap auditor, command-center QA). Their
+  roles (dotfiles validator, bootstrap auditor, command-center QA) plus the
+  dotfiles publisher, which publishes a handed-off branch from the host. Their
   bodies delegate to the matching `.agents/skills/<name>/SKILL.md`.
 
 Edit the tracked source files, not the linked destinations, unless the user
@@ -38,6 +39,13 @@ up-to-date `main`, create a focused branch, validate and commit there, then push
 the branch and open a pull request. Resolve all PR conversations before merging.
 No approval is currently required because this is a solo-maintained repository;
 do not merge a PR on the user's behalf unless the user explicitly requests it.
+
+Sandboxed builder sessions that cannot push or run desktop validators hand off
+by writing a gitignored `HANDOFF.md` at the repository root (branch, commits,
+changed files, validation done, validation remaining, PR title, PR body). A
+publisher session on the host — the `dotfiles-publisher` agent — consumes it,
+runs the remaining validators, pushes the branch, and opens the PR. Builders
+never push or open PRs; publishers never edit tracked files or merge.
 
 ## Desktop conventions
 

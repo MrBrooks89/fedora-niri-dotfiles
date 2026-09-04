@@ -9,3 +9,6 @@ secrets/
 niri/noctalia.kdl
 kitty/themes/noctalia.conf
 btop/themes/noctalia.theme
+
+# Session-local builder-to-publisher handoff notes (never committed)
+HANDOFF.md
