@@ -17,6 +17,11 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+[[ -n "$report_file" ]] || {
+    echo 'ERROR: --report FILE is required.' >&2
+    exit 2
+}
+
 report_file="$(readlink -f -- "$report_file")"
 case "$report_file" in
     "$state_dir"/commands/*/report.md) ;;
