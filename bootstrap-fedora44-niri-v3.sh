@@ -316,8 +316,12 @@ sudo dnf -y install \
     xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-kde \
     xdg-user-dirs \
     polkit \
+    power-profiles-daemon \
     grim slurp wl-clipboard tesseract tesseract-langpack-eng ddcutil i2c-tools \
     libreoffice
+
+echo "==> Enabling power-profiles-daemon"
+sudo systemctl enable --now power-profiles-daemon
 
 echo "==> Installing ChatGPT from the official OpenAI RPM repository"
 sudo install -m 0644 \
@@ -925,6 +929,7 @@ echo "  Neovim + eza + Starship"
 echo "  Repository-scoped persistent Herdr workflow sources"
 echo "  JetBrains Mono"
 echo "  NetworkManager Wi-Fi support"
+echo "  power-profiles-daemon (Noctalia power UI backend)"
 echo "  Intel iwlwifi firmware (iwlwifi-mvm-firmware)"
 echo "  Intel iwlwifi driver reload when Intel wireless is detected"
 echo "  greetd + Noctalia Greeter"
