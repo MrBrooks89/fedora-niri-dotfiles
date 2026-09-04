@@ -297,9 +297,11 @@ if command -v lspci >/dev/null 2>&1 && \
    lspci -nn | grep -qiE 'Intel Corporation.*(Network controller|Wireless|Wi-Fi)'; then
 
     # Reload after firmware install so Wi-Fi can become available immediately
-    # without requiring the first reboot.
+    # without requiring the first reboot. Non-fatal: the module loads at the
+    # next boot regardless, and a failed reload must not abort the bootstrap.
     sudo modprobe -r iwlwifi 2>/dev/null || true
-    sudo modprobe iwlwifi
+    sudo modprobe iwlwifi 2>/dev/null || \
+        echo "    WARNING: iwlwifi reload failed; it will load at next boot."
     sleep 2
 
     nmcli radio wifi on 2>/dev/null || true
@@ -335,7 +337,9 @@ sudo dnf -y install chatgpt
 
 echo "==> Enabling DDC/CI access for external monitor brightness controls"
 echo i2c-dev | sudo tee /etc/modules-load.d/i2c-dev.conf >/dev/null
-sudo modprobe i2c-dev
+# Non-fatal: boot-time loading is staged via modules-load.d above.
+sudo modprobe i2c-dev 2>/dev/null || \
+    echo "    WARNING: i2c-dev not loaded now; it will load at next boot."
 
 echo "==> Installing Teams for Linux from its official repository"
 teams_signing_key="$(mktemp --suffix=-teams-for-linux.asc)"
@@ -459,6 +463,7 @@ if [[ "$WITH_NERD_FONT" -eq 1 ]]; then
     mkdir -p "$FONT_DIR"
 
     tmp_font="$(mktemp --suffix=.tar.xz)"
+    trap 'rm -f "$tmp_font"' EXIT
 
     curl -fL \
         "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz" \
@@ -466,6 +471,7 @@ if [[ "$WITH_NERD_FONT" -eq 1 ]]; then
 
     tar -xJf "$tmp_font" -C "$FONT_DIR"
     rm -f "$tmp_font"
+    trap - EXIT
 
     fc-cache -f "$FONT_DIR"
 else
@@ -599,6 +605,7 @@ ROSE_PINE_CURSOR_URL="https://github.com/rose-pine/cursors/releases/latest/downl
 
 if [[ ! -d "$ROSE_PINE_CURSOR_DIR" ]]; then
     TMP_CURSOR="$(mktemp --suffix=.tar.xz)"
+    trap 'rm -f "$TMP_CURSOR"' EXIT
 
     sudo mkdir -p /usr/share/icons
 
@@ -614,6 +621,7 @@ if [[ ! -d "$ROSE_PINE_CURSOR_DIR" ]]; then
         -C /usr/share/icons
 
     rm -f "$TMP_CURSOR"
+    trap - EXIT
 else
     echo "    Rosé Pine cursor already installed."
 fi
