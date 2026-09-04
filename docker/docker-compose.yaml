@@ -16,6 +16,9 @@ services:
       - 3389:3389
     volumes:
       - /var/win11:/storage:Z
-    restart: always
+    # unless-stopped, not always: a 4GB Windows VM auto-starting at every boot
+    # hurts boot time and drains laptop batteries. Start it explicitly with
+    # `docker compose up -d` when needed.
+    restart: unless-stopped
     stop_grace_period: 2m
 
