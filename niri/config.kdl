@@ -1,6 +1,8 @@
 cursor {
     xcursor-theme "BreezeX-RosePine-Linux"
-    xcursor-size 32
+    // 24 matches gsettings and the greeter; a mismatched size makes niri-managed
+    // cursors render larger than GTK/greeter cursors.
+    xcursor-size 24
 }
 input {
     focus-follows-mouse max-scroll-amount="95%"
@@ -238,7 +240,9 @@ binds {
     // Open Browser
     Mod+B hotkey-overlay-title="Open Browser" {spawn "firefox";}
     // Open Music player Cider
-    Mod+M hotkey-overlay-title="Open Music Player" {spawn-sh "appimage-run ~/Documents/cider-v3.1.8-linux-x64.AppImage";}
+    // Mod+M: Cider AppImage binding disabled — the AppImage is not present on
+    // this machine. Restore when ~/Documents/cider-*.AppImage exists:
+    // Mod+M hotkey-overlay-title="Open Music Player" {spawn-sh "appimage-run ~/Documents/cider-v3.1.8-linux-x64.AppImage";}
     // Open Teams for Linux in wayland
     Mod+T hotkey-overlay-title="Open Microsoft Teams" {spawn "/opt/teams-for-linux/teams-for-linux"; }
     // Open btop in a floating terminal
@@ -246,7 +250,7 @@ binds {
 
     // Suggested binds for running programs: terminal, app launcher, screen locker.
     Mod+Return hotkey-overlay-title="Open a Terminal" { spawn "kitty"; }
-    Mod+A hotkey-overlay-title="Open OpenAI Codex" { spawn-sh "kitty --class org.openai.codex --directory \"$HOME/Work\" codex"; }
+    Mod+A hotkey-overlay-title="Open OpenAI Codex" { spawn-sh "mkdir -p \"$HOME/Work\" && kitty --class org.openai.codex --directory \"$HOME/Work\" codex"; }
     Mod+G hotkey-overlay-title="Open ChatGPT" { spawn "chatgpt" "--ozone-platform=wayland"; }
     Mod+Space hotkey-overlay-title="Command Center: Noctalia" { spawn "noctalia" "msg" "panel-toggle" "mrbrooks/command-center:panel"; }
     Mod+D hotkey-overlay-title="Calculator: Noctalia" { spawn "noctalia" "msg" "panel-toggle" "launcher" "/calc"; }

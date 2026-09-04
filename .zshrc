@@ -15,8 +15,6 @@ eval "$(starship init zsh)"
 
 # Session environment variables
 export PATH="$HOME/go/bin:$PATH"
-export PATH=$PATH:/snap/bin
-export DISPLAY=":0"
 
 # Aliases
 alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'

@@ -1,5 +1,6 @@
-# Noctalia v5 configuration translated from ~/Downloads/noctalia.nix.
-# The source targets Noctalia Shell v4; this uses v5 names and plugin IDs.
+# Noctalia v5 configuration — the declarative base for this workstation.
+# GUI-managed overrides live in ~/.local/state/noctalia/settings.toml and win
+# over this file. Uses v5 names and plugin IDs (not Noctalia Shell v4 QML).
 
 [shell]
 lang = "en"
