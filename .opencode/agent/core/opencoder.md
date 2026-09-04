@@ -6,6 +6,18 @@ temperature: 0.1
 permission:
   question: "allow"
   bash:
+    # Read-only commands pre-approved (last-matching-rule-wins: these do not
+    # overlap the ask/deny patterns below).
+    "pwd": "allow"
+    "git status*": "allow"
+    "git diff*": "allow"
+    "git log*": "allow"
+    "git branch*": "allow"
+    "head *": "allow"
+    "tail *": "allow"
+    "find *": "allow"
+    "grep *": "allow"
+    "ls *": "allow"
     "rm -rf *": "ask"
     "sudo *": "deny"
     "chmod *": "ask"
