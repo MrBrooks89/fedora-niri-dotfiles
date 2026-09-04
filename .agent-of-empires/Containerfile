@@ -1,0 +1,22 @@
+# Custom aoe sandbox image for this repository.
+#
+# Extends the stock aoe-sandbox with the tools this repo's workflow needs
+# inside sandboxed sessions:
+#   - gh        — push branches and open PRs (uses GH_TOKEN from the
+#                 sandbox environment passthrough)
+#   - python3   — tomllib checks from the AGENTS.md validation battery
+#
+# Build (after `sudo dnf install -y podman`):
+#   podman pull ghcr.io/agent-of-empires/aoe-sandbox:latest
+#   podman build -t localhost/aoe-dotfiles-sandbox:latest \
+#       -f .agent-of-empires/Containerfile .
+#
+# Then point the podman profile's default_image at
+# localhost/aoe-dotfiles-sandbox:latest
+# (~/.config/agent-of-empires/profiles/podman/config.toml).
+
+FROM ghcr.io/agent-of-empires/aoe-sandbox:latest
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gh python3 \
+    && rm -rf /var/lib/apt/lists/*
