@@ -9,12 +9,14 @@ documentation.
 
 `team.toml` is canonical. It declares one `Dotfiles Team` workspace:
 
-| Tab | Roles |
-| --- | --- |
-| Build | `coordinator`, `implementation`, `integration` |
-| Review | `validation`, `security`, `release` |
+| Tab | Agent | Roles |
+| --- | --- | --- |
+| Build | Codex | `coordinator`, `implementation`, `integration` |
+| Review | OpenCode | `validation`, `security`, `release` |
 
-Each tab contains three opencode agents, below Herdr's four-agent-per-tab limit.
+Each tab contains three agents, below Herdr's four-agent-per-tab limit. The
+manifest selects the agent kind independently for each tab, so the Build and
+Review workflows can use different supported interactive agents.
 The prompts constrain authority: the coordinator assigns work; implementation
 is the normal writer; integration freezes a coherent commit; validation and
 security review that commit; release audits readiness. No role may silently
@@ -23,9 +25,9 @@ configuration.
 
 ## Prerequisites and restore
 
-- Herdr 0.8.2 and opencode are installed.
-- `herdr integration status` reports `opencode: current`.
-- opencode hooks are enabled as documented by Herdr.
+- Herdr 0.8.2, Codex, and OpenCode are installed.
+- `herdr integration status` reports `codex: current` and `opencode: current`.
+- Codex and OpenCode hooks are enabled as documented by Herdr.
 - Herdr's `session.resume_agents_on_restore` remains enabled (the default).
 
 If integration is missing or outdated, inspect the change and explicitly run:
@@ -43,8 +45,9 @@ in `~/.config/herdr/config.toml`:
 resume_agents_on_restore = true
 ```
 
-The setup tool checks that the opencode integration is current but deliberately
-does not install it or overwrite this user-owned configuration.
+The setup tool checks that the integrations required by `team.toml` are current
+but deliberately does not install them or overwrite this user-owned
+configuration.
 
 The repository never edits `~/.config/herdr/config.toml`, `~/.codex`,
 `~/.config/opencode`, or Herdr's `session.json`. Do not copy those files into

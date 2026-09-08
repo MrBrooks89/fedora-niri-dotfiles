@@ -800,7 +800,8 @@ Its default refresh interval is 60 seconds.
 
 The repository includes two instruction layers for Codex:
 
-- `AGENTS.md` describes repository conventions and validation commands.
+- `AGENTS.md` describes repository conventions, validation commands, and automatic
+  Codex subagent delegation for Fedora configuration changes.
 - `codex/skills/fedora-niri/` provides general Fedora/Niri/Noctalia guidance.
 - `codex/skills/fedora-dotfiles-validator/` performs read-only pre-commit and
   pre-PR validation.
@@ -808,6 +809,14 @@ The repository includes two instruction layers for Codex:
   keyboard navigation, application launching, and capture workflows.
 - `codex/skills/fedora-bootstrap-auditor/` audits bootstrap safety, portability,
   package coverage, and repeatability without running installation.
+
+When you ask Codex to implement or fix Fedora configuration, the lead agent
+spawns an independent validator and the relevant bootstrap or command-center
+reviewers automatically. The lead implements the change and addresses their
+findings. This uses Codex's native subagents and needs no separate team launcher.
+Open a new Codex conversation in this repository to load updated `AGENTS.md`
+instructions. If that session lacks subagent tools, Codex reports the limitation
+and runs the checks locally.
 
 The bootstrap links every tracked skill into `~/.codex/skills/`. Restart Codex
 after the first installation so it discovers them. Authentication and session

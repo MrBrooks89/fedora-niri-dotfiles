@@ -10,6 +10,7 @@ from typing import Any
 ROLE_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
 VERSION_RE = re.compile(r"^[1-9][0-9]*\.[0-9]+\.[0-9]+$")
 SUPPORTED_HERDR = (0, 8, 2)
+SUPPORTED_AGENT_KINDS = {"codex", "opencode"}
 
 class WorkflowError(RuntimeError): pass
 
@@ -48,18 +49,19 @@ def repo_root() -> Path:
 
 def load_manifest(root: Path, path: Path | None = None) -> dict[str, Any]:
     with (path or root / "herdr/team.toml").open("rb") as handle: data = tomllib.load(handle)
-    required = {"schema_version","workflow_version","session","workspace","agent_kind","max_agents_per_tab","tabs","prompts"}
+    required = {"schema_version","workflow_version","session","workspace","max_agents_per_tab","tabs","prompts"}
     if set(data) != required or type(data["schema_version"]) is not int or data["schema_version"] != 1: raise WorkflowError("unsupported manifest schema")
-    for key in ("workflow_version","session","workspace","agent_kind"):
+    for key in ("workflow_version","session","workspace"):
         if type(data[key]) is not str or not data[key]: raise WorkflowError(f"{key} must be a nonempty string")
     if not VERSION_RE.fullmatch(data["workflow_version"]): raise WorkflowError("workflow_version must use MAJOR.MINOR.PATCH")
     if data["session"] == "default" or not ROLE_RE.fullmatch(data["session"]): raise WorkflowError("unsafe session name")
     limit = data["max_agents_per_tab"]
     if type(limit) is not int or not 1 <= limit <= 4: raise WorkflowError("max_agents_per_tab must be an integer from 1 through 4")
-    if data["agent_kind"] != "opencode" or type(data["tabs"]) is not list or len(data["tabs"]) != 2: raise WorkflowError("manifest must declare opencode and exactly two tabs")
+    if type(data["tabs"]) is not list or len(data["tabs"]) != 2: raise WorkflowError("manifest must declare exactly two tabs")
     roles, labels = [], []
     for tab in data["tabs"]:
-        if type(tab) is not dict or set(tab) != {"label","roles"} or type(tab["label"]) is not str or type(tab["roles"]) is not list: raise WorkflowError("invalid tab declaration")
+        if type(tab) is not dict or set(tab) != {"label","agent_kind","roles"} or type(tab["label"]) is not str or type(tab["agent_kind"]) is not str or type(tab["roles"]) is not list: raise WorkflowError("invalid tab declaration")
+        if tab["agent_kind"] not in SUPPORTED_AGENT_KINDS: raise WorkflowError(f"unsupported agent kind: {tab['agent_kind']}")
         if not tab["roles"] or len(tab["roles"]) > limit or any(type(role) is not str for role in tab["roles"]): raise WorkflowError("tab role cardinality violates policy")
         labels.append(tab["label"]); roles.extend(tab["roles"])
     canonical = ["coordinator","implementation","integration","validation","security","release"]
@@ -94,9 +96,11 @@ def check_version(binary):
     match = re.fullmatch(r"herdr (\d+)\.(\d+)\.(\d+)\s*", proc.stdout)
     if proc.returncode or not match or tuple(map(int,match.groups())) != SUPPORTED_HERDR: raise WorkflowError("this workflow requires Herdr 0.8.2")
 
-def check_integration(binary):
+def check_integration(binary, kinds):
     proc = subprocess.run([binary,"integration","status"], text=True, stdout=subprocess.PIPE)
-    if proc.returncode or not re.search(r"^opencode: current \(v\d+\)",proc.stdout,re.MULTILINE): raise WorkflowError("opencode integration is not current; install it explicitly")
+    if proc.returncode: raise WorkflowError("could not read Herdr integration status")
+    missing=[kind for kind in sorted(kinds) if not re.search(rf"^{re.escape(kind)}: current \(v\d+\)",proc.stdout,re.MULTILINE)]
+    if missing: raise WorkflowError("integration is not current for: "+", ".join(missing)+"; install it explicitly")
 
 def identify_session(api: Herdr, env: dict[str,str]):
     required = ("HERDR_SOCKET_PATH","HERDR_PANE_ID","HERDR_TAB_ID","HERDR_WORKSPACE_ID")
@@ -204,7 +208,7 @@ def plan(snapshot,manifest,root,contracts):
             if snapshot.processes.get(pane.get("pane_id"))!=[]: reasons.append(f"pane {pane.get('pane_id')} is not an idle shell; exit its foreground processes and rerun")
         if reasons: return [],["sole initial workspace is not pristine and cannot be adopted"+"".join(f" ({reason})" for reason in reasons)]
         ops += [Operation("rename_workspace",target=str(snapshot.workspace.get("workspace_id"))),Operation("rename_tab",tab="Build",target=str(snapshot.tabs[0].get("tab_id")))]
-    desired={t["label"]:t["roles"] for t in manifest["tabs"]}; live_labels=[t.get("label") for t in snapshot.tabs]
+    desired={t["label"]:t for t in manifest["tabs"]}; live_labels=[t.get("label") for t in snapshot.tabs]
     if managed:
         extra=[str(x) for x in live_labels if x not in desired]
         dup=[x for x in desired if live_labels.count(x)>1]
@@ -214,7 +218,7 @@ def plan(snapshot,manifest,root,contracts):
         cwd=pane.get("cwd")
         if not isinstance(cwd,str) or Path(cwd).resolve()!=root: conflicts.append(f"pane {pane.get('pane_id')} has wrong cwd")
     if restore_pending(snapshot): conflicts.append("native agent restore did not settle")
-    role_tab={r:l for l,roles in desired.items() for r in roles}; named=[a for a in snapshot.agents if a.get("name")]
+    role_tab={r:l for l,tab in desired.items() for r in tab["roles"]}; named=[a for a in snapshot.agents if a.get("name")]
     for role,expected in role_tab.items():
         matches=[a for a in named if a.get("name")==role]
         if len(matches)>1: conflicts.append(f"duplicate agent name: {role}")
@@ -222,7 +226,7 @@ def plan(snapshot,manifest,root,contracts):
             agent=matches[0]; label=next((t.get("label") for t in snapshot.tabs if t.get("tab_id")==agent.get("tab_id")),None)
             if not managed and len(snapshot.tabs)==1: label="Build"
             if label!=expected: conflicts.append(f"{role} is in the wrong tab")
-            if agent.get("agent")!=manifest["agent_kind"]: conflicts.append(f"{role} has wrong agent kind")
+            if agent.get("agent")!=desired[expected]["agent_kind"]: conflicts.append(f"{role} has wrong agent kind")
             if agent.get("agent_status")=="unknown" or not agent.get("agent_session"): conflicts.append(f"{role} is not safely recognized")
             elif not contract_delivered(contracts,manifest,root,role,agent):
                 if agent.get("agent_status")=="blocked": conflicts.append(f"{role} is blocked and its role contract is uninitialized")
@@ -236,7 +240,8 @@ def plan(snapshot,manifest,root,contracts):
     tab_by_label={t.get("label"):t for t in snapshot.tabs}
     if not managed: tab_by_label={"Build":snapshot.tabs[0]}
     occupied={a.get("pane_id") for a in snapshot.agents}
-    for label,roles in desired.items():
+    for label,tab_spec in desired.items():
+        roles=tab_spec["roles"]
         tab=tab_by_label.get(label)
         if tab is None: ops.append(Operation("create_tab",tab=label)); panes=[{}]; agents=[]; free=[f"new:{label}:0"]
         else:
@@ -286,7 +291,7 @@ def apply_plan(api,manifest,root,operations,contracts):
             tokens[op.target]=result_id(api.mutate("pane","split","--pane",str(panes[0]["pane_id"]),"--direction","right","--cwd",str(root),"--no-focus"),"pane","pane_id")
         elif op.action=="start":
             require_empty_pane(snap,tokens.get(op.target,op.target))
-            pane=tokens.get(op.target,op.target); api.mutate("agent","start",op.role,"--kind",manifest["agent_kind"],"--pane",pane)
+            pane=tokens.get(op.target,op.target); tab_spec=next(t for t in manifest["tabs"] if t["label"]==op.tab); api.mutate("agent","start",op.role,"--kind",tab_spec["agent_kind"],"--pane",pane)
         elif op.action=="initialize":
             agent=next((a for a in snap.agents if a.get("name")==op.role),None)
             if not agent or agent.get("agent_status") not in {"idle","done"}: raise WorkflowError(f"{op.role} is not settled for role initialization")
@@ -313,7 +318,7 @@ def main():
     try:
         root=repo_root(); manifest=load_manifest(root)
         if args.validate_config: print("team.toml and role prompts are valid."); return 0
-        binary=trusted_executable("herdr"); check_version(binary); check_integration(binary); api=Herdr(binary,manifest["session"],args.dry_run); identify_session(api,os.environ)
+        binary=trusted_executable("herdr"); check_version(binary); check_integration(binary,{tab["agent_kind"] for tab in manifest["tabs"]}); api=Herdr(binary,manifest["session"],args.dry_run); identify_session(api,os.environ)
         with reconcile_lock():
             contracts=load_contracts(); snap=settle_restore(api,manifest,root,args.settle_seconds); ops,conflicts=plan(snap,manifest,root,contracts)
             if conflicts:
