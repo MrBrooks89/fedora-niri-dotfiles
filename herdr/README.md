@@ -80,9 +80,33 @@ On the first attach, use a shell pane inside the new named session:
 ```bash
 herdr/bootstrap-team.sh --validate-config
 herdr/bootstrap-team.sh --dry-run
+# Once the controller finishes, read its plan and exit status:
+herdr/bootstrap-team.sh --status
 herdr/bootstrap-team.sh --setup
+# Wait for setup to finish, then read its result:
+herdr/bootstrap-team.sh --status
 herdr/bootstrap-team.sh --check
+herdr/bootstrap-team.sh --status
 ```
+
+Run these commands individually. `--dry-run`, `--check`, `--setup`, and
+`--repair` launch a detached controller and return the pane to its shell prompt.
+The launch command's zero exit status only confirms that the controller was
+started. Each launch prints its private log path under
+`${XDG_STATE_HOME:-$HOME/.local/state}/fedora-niri-dotfiles/herdr/runs/`.
+`--status` prints the latest run's log and returns its final exit status, or 2
+while it is running. It does not contact Herdr or launch another controller.
+`--validate-config` and `--help` remain synchronous.
+
+Leave the pane at its prompt while the controller runs; inspect the printed log
+from another terminal if needed. Do not run `tail -f` or `wait` in the pane to be
+adopted. Output redirection alone does not release a foreground job. The worker
+has no controlling terminal, reads stdin from `/dev/null`, and waits up to three
+seconds for the launching shell to regain the foreground. An editor, Codex,
+OpenCode, or another foreground command still prevents adoption. Exit such a
+process yourself before retrying. A second concurrent controller fails without
+queuing a repair. Logs are retained per run, so an earlier run's printed path
+remains available even after another launch becomes the latest run.
 
 `--setup` and `--repair` are the same additive, idempotent reconciliation path.
 They read all opaque IDs from Herdr JSON, create in the background with the
@@ -105,7 +129,7 @@ cwd, contains exactly one empty shell, and has no agents. Any other unexpected
 workspace fails closed; setup never creates a hidden second workspace.
 
 Before mutation, the controller takes one coherent discovery snapshot, waits up
-to three seconds for panes carrying native agent-session metadata to settle,
+to three seconds for the calling shell and native agent-session metadata to settle,
 and computes the complete immutable plan. Any conflict cancels the whole plan
 with zero writes. A still-unrecognized session-bearing pane is reported and
 preserved. An empty fallback shell without restore metadata can be assigned a
@@ -212,6 +236,8 @@ preservation, durable role initialization and its single retry, retained
 not-ready names, conflict zero-mutation, malformed/error responses, and absent
 `HERDR_SESSION`. Shell tests cover symlinked `.zshrc`, spaces, alternate
 repositories, argument forwarding, and nested launch. It never touches a live
-session. A uniquely named integration session may be
+session. PTY tests exercise the public launcher from an interactive shell,
+including real foreground process groups, detached I/O, result reporting,
+and refusal to adopt occupied panes. A uniquely named integration session may be
 tested manually later, but never stop/delete the live default or Dotfiles Team
 session and never run the full Fedora bootstrap merely to validate this feature.
