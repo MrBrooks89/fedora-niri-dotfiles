@@ -115,7 +115,10 @@ def reconcile_lock():
     directory.mkdir(mode=0o700,parents=True,exist_ok=True); directory.chmod(0o700)
     lock = directory/"reconcile.lock"
     with lock.open("a+") as handle:
-        os.chmod(lock,0o600); fcntl.flock(handle,fcntl.LOCK_EX); yield
+        os.chmod(lock,0o600)
+        try: fcntl.flock(handle,fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc: raise WorkflowError("another Herdr controller is running; inspect its log before retrying") from exc
+        yield
 
 def contract_file():
     return Path(os.environ.get("XDG_STATE_HOME",Path.home()/".local/state"))/"fedora-niri-dotfiles/herdr/role-contracts.json"
@@ -180,7 +183,10 @@ def restore_pending(snapshot):
 
 def settle_restore(api,manifest,root,seconds):
     snapshot=discover(api,manifest,root); deadline=time.monotonic()+max(0,seconds)
-    while restore_pending(snapshot) and time.monotonic()<deadline:
+    caller=os.environ.get("HERDR_PANE_ID")
+    def caller_busy():
+        return bool(snapshot.processes.get(caller)) and not any(a.get("pane_id")==caller for a in snapshot.agents)
+    while (restore_pending(snapshot) or caller_busy()) and time.monotonic()<deadline:
         time.sleep(min(.2,max(0,deadline-time.monotonic()))); snapshot=discover(api,manifest,root)
     return snapshot
 
@@ -264,6 +270,10 @@ def assert_transition(api,manifest,root,op,tokens):
     if op.action=="split" and op.target not in tokens: raise WorkflowError("split response missing pane ID")
     if op.action=="start" and not any(a.get("name")==op.role for a in snap.agents): raise WorkflowError("agent start did not converge")
 
+def require_empty_pane(snapshot, pane):
+    if snapshot.processes.get(pane)!=[] or any(p.get("pane_id")==pane and p.get("agent_session") for p in snapshot.panes) or any(a.get("pane_id")==pane for a in snapshot.agents):
+        raise WorkflowError(f"pane {pane} is no longer an empty shell; rerun after inspecting it")
+
 def apply_plan(api,manifest,root,operations,contracts):
     tokens={}
     for op in operations:
@@ -275,6 +285,7 @@ def apply_plan(api,manifest,root,operations,contracts):
             tab=next(t for t in snap.tabs if t.get("label")==op.tab); panes=[p for p in snap.panes if p.get("tab_id")==tab.get("tab_id")]
             tokens[op.target]=result_id(api.mutate("pane","split","--pane",str(panes[0]["pane_id"]),"--direction","right","--cwd",str(root),"--no-focus"),"pane","pane_id")
         elif op.action=="start":
+            require_empty_pane(snap,tokens.get(op.target,op.target))
             pane=tokens.get(op.target,op.target); api.mutate("agent","start",op.role,"--kind",manifest["agent_kind"],"--pane",pane)
         elif op.action=="initialize":
             agent=next((a for a in snap.agents if a.get("name")==op.role),None)
@@ -290,10 +301,15 @@ def apply_plan(api,manifest,root,operations,contracts):
         else: raise WorkflowError(f"unsupported operation: {op.action}")
         assert_transition(api,manifest,root,op,tokens)
 
-def main():
+def parse_arguments():
     parser=argparse.ArgumentParser(description=__doc__); modes=parser.add_mutually_exclusive_group(required=True)
     for mode in ("validate-config","check","dry-run","setup","repair"): modes.add_argument("--"+mode,action="store_true")
-    parser.add_argument("--settle-seconds",type=float,default=3.0); args=parser.parse_args()
+    parser.epilog="bootstrap-team.sh runs live checks in the background; use bootstrap-team.sh --status for the result."
+    parser.add_argument("--settle-seconds",type=float,default=3.0)
+    return parser.parse_args()
+
+def main():
+    args=parse_arguments()
     try:
         root=repo_root(); manifest=load_manifest(root)
         if args.validate_config: print("team.toml and role prompts are valid."); return 0
