@@ -47,6 +47,35 @@ publisher session on the host — the `dotfiles-publisher` agent — consumes it
 runs the remaining validators, pushes the branch, and opens the PR. Builders
 never push or open PRs; publishers never edit tracked files or merge.
 
+## Automatic Codex delegation
+
+For Fedora configuration implementation and repair requests in Codex,
+automatically spawn subagents using the available collaboration tools. The user
+does not need to ask for agents separately. The lead agent owns implementation,
+integration, and fixes; delegate bounded independent review work while continuing
+useful local inspection or implementation.
+
+- Use `fedora-dotfiles-validator` for independent validation of every completed
+  change set before commit or handoff.
+- Also use `fedora-bootstrap-auditor` for bootstrap, installer, package, or
+  provisioning changes.
+- Also use `noctalia-command-center-qa` for command-center, capture, keyboard
+  navigation, application launching, or plugin changes.
+
+Give each subagent the checkout path, relevant files, review scope, and matching
+`codex/skills/<name>/SKILL.md`. Explicitly instruct reviewers to remain read-only,
+preserve unrelated work, and not spawn duplicate reviewers. Start applicable
+specialist reviews early when they can run independently; send the final diff
+for validation once it is ready. Review findings, fix relevant issues, and request
+revalidation when needed before reporting completion. A skill being available or
+read by the lead agent is not a substitute for spawning a reviewer.
+
+Use Codex's native subagents directly; this workflow does not require opencode,
+Herdr, or a separate team launcher. If collaboration tools are unavailable,
+perform the relevant checks locally and clearly report that automatic delegation
+was unavailable. Do not claim a subagent ran when it did not. Publishing remains
+subject to the builder/publisher workflow above; reviewers do not publish or merge.
+
 ## Desktop conventions
 
 - Keep the normal desktop native Wayland. Do not solve application problems by

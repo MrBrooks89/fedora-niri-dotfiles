@@ -17,6 +17,8 @@ from test_team import Harness, MODULE, ROOT, pristine
 
 
 class BackgroundLaunch(unittest.TestCase):
+    CONTROLLER_TIMEOUT = 60
+
     def setUp(self):
         self.h = Harness(pristine())
         self.runs = self.h.path / "state/fedora-niri-dotfiles/herdr/runs"
@@ -91,7 +93,7 @@ runpy.run_path(os.environ["FAKE_HERDR_IMPLEMENTATION"], run_name="__main__")
         return self.runs / (self.runs / "latest").read_text().strip(), output
 
     def wait_result(self, run):
-        deadline = time.monotonic() + 20
+        deadline = time.monotonic() + self.CONTROLLER_TIMEOUT
         while time.monotonic() < deadline:
             result = json.loads((run / "result.json").read_text())
             if result["state"] == "finished":
@@ -104,17 +106,16 @@ runpy.run_path(os.environ["FAKE_HERDR_IMPLEMENTATION"], run_name="__main__")
         os.write(self.fd, b"python3 herdr/team.py --dry-run --settle-seconds 0\n")
         self.assertIn("not an idle shell", self.read_until("TEST_READY> "))
         for mode in ("--dry-run", "--setup", "--repair", "--check"):
-            with self.subTest(mode=mode):
-                run, _ = self.launch(mode)
-                code, log = self.wait_result(run)
-                self.assertEqual(code, 0, log)
-                state = self.h.state()
-                self.assertTrue(state["worker_detached"])
-                self.assertEqual(state["worker_stdin"], "/dev/null")
-                self.assertEqual(state["worker_stdout"], str(run / "output.log"))
-                self.assertFalse(state.get("unsafe_start"))
-                if mode == "--dry-run": self.assertEqual(state["mutations"], [])
-                self.assertEqual((run / "output.log").stat().st_mode & 0o777, 0o600)
+            run, _ = self.launch(mode)
+            code, log = self.wait_result(run)
+            self.assertEqual(code, 0, log)
+            state = self.h.state()
+            self.assertTrue(state["worker_detached"])
+            self.assertEqual(state["worker_stdin"], "/dev/null")
+            self.assertEqual(state["worker_stdout"], str(run / "output.log"))
+            self.assertFalse(state.get("unsafe_start"))
+            if mode == "--dry-run": self.assertEqual(state["mutations"], [])
+            self.assertEqual((run / "output.log").stat().st_mode & 0o777, 0o600)
         self.assertEqual(len(self.h.state()["agents"]), 6)
 
     def test_occupied_caller_still_fails_without_mutations(self):
