@@ -45,7 +45,6 @@ export PATH="$HOME/.local/bin:$PATH"
 # Route plain `herdr` from this canonical checkout to its dedicated persistent
 # session. All arguments and all other directories retain upstream behavior.
 typeset _fedora_niri_zshrc_source=${${(%):-%N}:A}
-source "${_fedora_niri_zshrc_source:h}/herdr/shell-integration.zsh"
 unset _fedora_niri_zshrc_source
 
 # Offer an opt-in AI diagnosis after a failed interactive command. The helper
@@ -96,3 +95,10 @@ fi
 
 # opencode
 export PATH="$HOME/.opencode/bin:$PATH"
+
+# bun completions
+[ -s "/home/mrbrooks/.bun/_bun" ] && source "/home/mrbrooks/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
