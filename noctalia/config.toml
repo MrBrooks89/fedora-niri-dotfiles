@@ -95,7 +95,7 @@ capsule_border = "outline"
 
 start = ["cpu", "media"]
 center = ["workspaces"]
-end = ["tray", "screen-recorder", "codexbar", "volume", "network", "battery", "clock", "notification"]
+end = ["tray", "screen-recorder", "volume", "network", "battery", "clock", "notification"]
 
 [widget.cpu]
 type = "sysmon"
@@ -112,9 +112,6 @@ type = "tray"
 
 [widget.screen-recorder]
 type = "noctalia/screen_recorder:recorder"
-
-[widget.codexbar]
-type = "salemsayed/codexbar-meter:bar"
 
 [widget.volume]
 type = "volume"
@@ -246,7 +243,7 @@ auto_hide = true
 magnification = false
 
 [plugins]
-enabled = ["noctalia/screen_recorder", "salemsayed/codexbar-meter", "mrbrooks/command-center"]
+enabled = ["noctalia/screen_recorder", "mrbrooks/command-center"]
 auto_update = "all"
 
 [[plugins.source]]
@@ -275,8 +272,3 @@ video_codec = "h264"
 video_source = "portal"
 audio_source = "default_output"
 show_cursor = true
-
-[plugin_settings."salemsayed/codexbar-meter"]
-codexbarPath = "codexbar"
-refreshIntervalSec = 60
-barProviderLimit = 1

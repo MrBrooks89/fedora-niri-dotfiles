@@ -18,7 +18,6 @@ jobs:
           bash -n bootstrap-fedora44-niri-v3.sh
           bash -n install-noctalia-greeter.sh
           bash -n configure-noctalia-greeter.sh
-          for f in diagnostics/*.sh; do bash -n "$f"; done
           bash -n noctalia/plugins/command-center/dispatch-action.sh
           bash -n noctalia/plugins/command-center/capture-tools.sh
           bash -n noctalia/plugins/command-center/list-applications.sh

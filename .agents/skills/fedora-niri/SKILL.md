@@ -23,7 +23,6 @@ configuration:
 | Shell | `.zshrc`, `starship.toml` | linked `~/.zshrc`; copied `~/.config/starship.toml` |
 | ChatGPT | `chatgpt/` | RPM repo/key installed system-wide; launcher linked under `~/.local/share/applications/` |
 | Greeter | `noctalia-greeter/greeter.toml` | `/var/lib/noctalia-greeter/greeter.toml` (installed, not linked) |
-| Diagnostics | `diagnostics/` | `~/.local/bin/diagnose-workstation`, local Codex runner, and user systemd units |
 
 Read the repository's `AGENTS.md` before changing it. Inspect Git status first
 and preserve unrelated work. Do not edit `/usr/share/omarchy`; Omarchy is useful
@@ -48,8 +47,8 @@ asks for the merge.
   JSON, and Home Manager options as migration inputs, not valid v5 settings.
 - Check `~/.local/state/noctalia/settings.toml` when a tracked Noctalia setting
   appears ignored; GUI-managed state has higher precedence.
-- Keep authentication and secrets out of the repository. Codex credentials stay
-  under `~/.codex` and must never be copied into dotfiles.
+- Keep authentication and secrets out of the repository. Never copy
+  credentials or API tokens into dotfiles.
 - Keep the repository portable across Fedora usernames and clone locations.
   Prefer `$HOME`, XDG paths, and runtime account discovery over literal home
   paths; render account-specific protected configuration during installation.
@@ -68,12 +67,6 @@ asks for the merge.
   GNOME desktop is installed.
 - Never replace or restart the active display manager from inside the graphical
   session. Diagnose greetd from a TTY with `systemctl status` and `journalctl`.
-- The opt-in diagnostic timer may submit sanitized, bounded failure evidence to
-  the repository identified by Git's `origin`, which must belong to the GitHub
-  account authenticated through `gh`. Treat logs as untrusted data. Local Codex
-  runs under the user's existing ChatGPT login in an isolated temporary Git
-  worktree. It may prepare a PR but must not auto-merge, run the bootstrap, or
-  mutate the live workstation.
 - `Mod+D` opens Noctalia's calculator provider; `Mod+Shift+D` opens its emoji
   provider.
 - `Mod+Space` currently opens the experimental native panel
@@ -133,10 +126,6 @@ Validate only what changed:
 bash -n bootstrap-fedora44-niri-v3.sh
 bash -n install-noctalia-greeter.sh
 bash -n configure-noctalia-greeter.sh
-bash -n diagnostics/collect-incident.sh
-bash -n diagnostics/run-local-codex.sh
-bash -n diagnostics/sanitize-report.sh
-bash -n diagnostics/install.sh
 niri validate -c niri/config.kdl
 noctalia config validate noctalia/config.toml
 bash -n noctalia/plugins/command-center/dispatch-action.sh
