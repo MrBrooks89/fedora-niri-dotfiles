@@ -27,6 +27,8 @@ Expected layout:
 ```text
 fedora-niri-dotfiles/
 ├── btop/
+├── codex/
+│   └── skills/
 ├── chatgpt/
 │   ├── RPM-GPG-KEY-chatgpt
 │   ├── chatgpt.desktop
@@ -69,6 +71,7 @@ repo/nvim              → ~/.config/nvim
 repo/btop              → ~/.config/btop
 repo/noctalia          → ~/.config/noctalia
 repo/satty             → ~/.config/satty
+repo/codex/skills/*    → ~/.codex/skills/<skill-name>
 repo/chatgpt/chatgpt.desktop
                        → ~/.local/share/applications/chatgpt.desktop
 repo/webapps/fedora-web-app
@@ -238,6 +241,7 @@ nvim/
 btop/
 noctalia/
 satty/
+codex/skills/
 ```
 
 ---
@@ -763,6 +767,141 @@ pair XX:XX:XX:XX:XX:XX
 trust XX:XX:XX:XX:XX:XX
 connect XX:XX:XX:XX:XX:XX
 quit
+```
+
+## OpenAI Codex + usage widget
+
+Install the Codex CLI and the CodexBar usage helper:
+
+```bash
+./bootstrap-fedora44-niri-v3.sh --with-codex
+```
+
+Then run `codex` once and sign in. `Mod+A` opens Codex in Kitty, starting in
+`~/Work`. You can inspect usage manually with:
+
+```bash
+codexbar usage --format json --json-only
+```
+
+The tracked `noctalia/config.toml` declares the community plugin source,
+enables CodexBar Meter, and places it on the right side of the bar. After the
+bootstrap links that configuration, Noctalia should fetch and activate it.
+If the plugin has not yet been materialized, finish it from the UI:
+
+1. Open **Noctalia Settings → Plugins** and install/enable **CodexBar Meter**.
+2. Open **Bar**, choose the desired section, and add
+   `salemsayed/codexbar-meter:bar`.
+
+The widget opens its usage panel on left-click and refreshes on right-click.
+Its default refresh interval is 60 seconds.
+
+### Codex desktop guidance
+
+The repository includes two instruction layers for Codex:
+
+- `AGENTS.md` describes repository conventions, validation commands, and automatic
+  Codex subagent delegation for Fedora configuration changes.
+- `codex/skills/fedora-niri/` provides general Fedora/Niri/Noctalia guidance.
+- `codex/skills/fedora-dotfiles-validator/` performs read-only pre-commit and
+  pre-PR validation.
+- `codex/skills/noctalia-command-center-qa/` reviews the command center,
+  keyboard navigation, application launching, and capture workflows.
+- `codex/skills/fedora-bootstrap-auditor/` audits bootstrap safety, portability,
+  package coverage, and repeatability without running installation.
+
+When you ask Codex to implement or fix Fedora configuration, the lead agent
+spawns an independent validator and the relevant bootstrap or command-center
+reviewers automatically. The lead implements the change and addresses their
+findings. This uses Codex's native subagents and needs no separate team launcher.
+Open a new Codex conversation in this repository to load updated `AGENTS.md`
+instructions. If that session lacks subagent tools, Codex reports the limitation
+and runs the checks locally.
+
+The bootstrap links every tracked skill into `~/.codex/skills/`. Restart Codex
+after the first installation so it discovers them. Authentication and session
+data remain in `~/.codex` and are intentionally not tracked.
+
+### Automated workstation diagnostics
+
+The optional diagnostic timer checks every 15 minutes for failed systemd units,
+relevant high-priority journal messages, and recent coredumps. Reports are
+bounded, sanitized locally, deduplicated, and submitted as GitHub issues titled
+`[workstation-diagnostic] ...`. A six-hour cooldown prevents repeated failures
+from flooding the repository.
+
+After opening an issue, the runner starts `codex exec` locally under the current
+user's existing ChatGPT login. Codex receives the sanitized report and works in
+an isolated temporary Git worktree with workspace-write sandboxing. If it finds
+a supported repository fix, the wrapper commits and pushes a dedicated branch
+and opens a PR. Otherwise, it comments its diagnosis on the issue. It never
+merges, runs the bootstrap, or modifies the live workstation.
+
+No OpenAI API key or GitHub Actions secret is required. Local setup requires a
+ChatGPT-authenticated Codex CLI and a valid GitHub CLI login:
+
+```bash
+codex login
+gh auth login --hostname github.com
+./diagnostics/install.sh
+```
+
+The diagnostic scripts derive their GitHub target from the checkout's `origin`.
+That repository must be owned by the account reported by `gh`; a friend using
+this setup should fork the repository, set `origin` to their fork, and then run
+the installer. This prevents automated reports and branches from targeting the
+original repository without its owner's credentials.
+
+For a fresh bootstrap, use:
+
+```bash
+./bootstrap-fedora44-niri-v3.sh \
+    --with-codex \
+    --configure-github \
+    --with-auto-diagnostics
+```
+
+This integration is deliberately opt-in and is not enabled by `--all`.
+
+Test collection without uploading anything:
+
+```bash
+diagnose-workstation --dry-run --force
+```
+
+Inspect or disable the timer:
+
+```bash
+systemctl --user status fedora-niri-diagnostics.timer
+systemctl --user disable --now fedora-niri-diagnostics.timer
+```
+
+The local agent logs are available with:
+
+```bash
+journalctl --user -u fedora-niri-diagnostics.service
+```
+
+The collector deliberately avoids environment dumps, command history,
+clipboard contents, arbitrary home-directory files, and full coredump memory.
+
+Interactive Zsh sessions also provide an opt-in, click-to-diagnose path. After
+a command exits unsuccessfully, a desktop notification offers **Diagnose with
+AI**. Nothing is sent to Codex until that action is clicked. The helper records
+only the failed command, exit status, working directory, and—for npm failures—a
+recent bounded npm debug-log tail; it sanitizes the report before saving it.
+
+The click action opens a local Kitty window and runs Codex in an isolated
+dotfiles worktree. Command mistakes and machine-local failures produce advice
+only. If Codex instead finds a durable defect in tracked Fedora Niri
+configuration, the wrapper may push the isolated change and open a PR for
+review; it never merges or applies that change to the live workstation.
+
+Open a new terminal after installation to load the Zsh hook. A simple local
+notification test is:
+
+```bash
+false
 ```
 
 ## Docker + containerlab
