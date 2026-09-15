@@ -27,6 +27,7 @@ set -Eeuo pipefail
 #   ├── noctalia-greeter/
 #   ├── install-noctalia-greeter.sh
 #   ├── configure-noctalia-greeter.sh
+#   ├── codex/skills/
 #   ├── herdr/                # persistent six-role workflow sources
 #   ├── satty/                 # optional
 #   └── webapps/fedora-web-app # required managed Chromium web-app command
@@ -39,6 +40,7 @@ set -Eeuo pipefail
 #   ~/.config/nvim
 #   ~/.config/btop
 #   ~/.config/noctalia
+#   ~/.codex/skills/<tracked-skill>
 #   ~/.config/satty
 #   ~/.local/share/applications/chatgpt.desktop
 #   ~/.local/bin/fedora-web-app
@@ -56,7 +58,9 @@ WITH_CONTAINERLAB=0
 WITH_SATTY_COPR=0
 WITH_NERD_FONT=0
 WITH_GAMING=0
+WITH_CODEX=0
 WITH_LOCALSEND=0
+WITH_AUTO_DIAGNOSTICS=0
 CONFIGURE_GITHUB=0
 CONFIGURE_NETWORK=0
 GROUP_MEMBERSHIP_CHANGED=0
@@ -85,6 +89,9 @@ Options:
                            and USB/Bluetooth Xbox controller support
   --with-localsend         Install LocalSend from Flathub for nearby-device sharing
                            and allow its incoming traffic through firewalld
+  --with-codex             Install Codex CLI and CodexBar usage helper
+  --with-auto-diagnostics  Enable local Codex crash diagnosis and PR proposals
+                           (requires --with-codex and --configure-github)
   --configure-github       Configure Git identity and authenticate GitHub CLI
   --configure-network      Configure 192.168.4.112/24, gateway/DNS 192.168.4.1
   --all                    Enable all optional software
@@ -126,6 +133,8 @@ while [[ $# -gt 0 ]]; do
         --with-nerd-font)    WITH_NERD_FONT=1 ;;
         --with-gaming)      WITH_GAMING=1 ;;
         --with-localsend)   WITH_LOCALSEND=1 ;;
+        --with-codex)       WITH_CODEX=1 ;;
+        --with-auto-diagnostics) WITH_AUTO_DIAGNOSTICS=1 ;;
         --configure-github) CONFIGURE_GITHUB=1 ;;
         --configure-network) CONFIGURE_NETWORK=1 ;;
         --dry-run) DRY_RUN=1 ;;
@@ -136,6 +145,7 @@ while [[ $# -gt 0 ]]; do
             WITH_NERD_FONT=1
             WITH_GAMING=1
             WITH_LOCALSEND=1
+            WITH_CODEX=1
             CONFIGURE_GITHUB=1
             CONFIGURE_NETWORK=1
             ;;
@@ -151,6 +161,15 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 && "$CONFIGURE_GITHUB" -ne 1 ]]; then
+    echo "--with-auto-diagnostics requires --configure-github." >&2
+    exit 2
+fi
+if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 && "$WITH_CODEX" -ne 1 ]]; then
+    echo "--with-auto-diagnostics requires --with-codex." >&2
+    exit 2
+fi
 
 if [[ $EUID -eq 0 ]]; then
     echo "Run this script as your normal user, not root." >&2
@@ -184,10 +203,12 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     [[ "$WITH_NERD_FONT" -eq 1 ]] && echo "  - [--with-nerd-font] Install JetBrainsMono Nerd Font"
     [[ "$WITH_GAMING" -eq 1 ]] && echo "  - [--with-gaming] RPM Fusion, Steam, LACT, Heroic, controller modules"
     [[ "$WITH_LOCALSEND" -eq 1 ]] && echo "  - [--with-localsend] LocalSend flatpak + firewalld ports"
+    [[ "$WITH_CODEX" -eq 1 ]] && echo "  - [--with-codex] Codex CLI + CodexBar"
     [[ "$WITH_DOCKER" -eq 1 ]] && echo "  - [--with-docker] Docker CE + docker group"
     [[ "$WITH_CONTAINERLAB" -eq 1 ]] && echo "  - [--with-containerlab] containerlab + clab_admins group"
     [[ "$CONFIGURE_GITHUB" -eq 1 ]] && echo "  - [--configure-github] Git identity + gh auth (interactive)"
     [[ "$CONFIGURE_NETWORK" -eq 1 ]] && echo "  - [--configure-network] Static IP $STATIC_IP via nmcli (interactive)"
+    [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 ]] && echo "  - [--with-auto-diagnostics] diagnostics install.sh"
     echo "  - Dotfiles source: $DOTFILES_DIR"
     [[ -n "$DOTFILES_REPO" ]] && echo "    (alternate repo: $DOTFILES_REPO branch: ${DOTFILES_BRANCH:-default})"
     echo "  - Link configs (backups to $BACKUP_DIR), seed themes, provision web apps"
@@ -531,6 +552,71 @@ else
     echo "NOTE: Gaming software not installed. Use --with-gaming if needed."
 fi
 
+if [[ "$WITH_CODEX" -eq 1 ]]; then
+    echo "==> Installing OpenAI Codex CLI"
+    sudo dnf -y install nodejs npm
+    npm install --global --prefix "$HOME/.local" @openai/codex
+
+    echo "==> Installing CodexBar CLI for the Noctalia usage widget"
+
+    case "$(uname -m)" in
+        x86_64)  CODEXBAR_ARCH="x86_64" ;;
+        aarch64) CODEXBAR_ARCH="aarch64" ;;
+        *)
+            echo "ERROR: Unsupported architecture for CodexBar: $(uname -m)" >&2
+            exit 1
+            ;;
+    esac
+
+    CODEXBAR_RELEASE_JSON="$(curl -fsSL \
+        https://api.github.com/repos/steipete/CodexBar/releases/latest)"
+    CODEXBAR_TAG="$(jq -r '.tag_name' <<<"$CODEXBAR_RELEASE_JSON")"
+    CODEXBAR_ASSET="CodexBarCLI-${CODEXBAR_TAG}-linux-${CODEXBAR_ARCH}.tar.gz"
+    CODEXBAR_URL="$(jq -r --arg name "$CODEXBAR_ASSET" \
+        '.assets[] | select(.name == $name) | .browser_download_url' \
+        <<<"$CODEXBAR_RELEASE_JSON")"
+    CODEXBAR_SHA_URL="$(jq -r --arg name "${CODEXBAR_ASSET}.sha256" \
+        '.assets[] | select(.name == $name) | .browser_download_url' \
+        <<<"$CODEXBAR_RELEASE_JSON")"
+
+    if [[ -z "$CODEXBAR_URL" || -z "$CODEXBAR_SHA_URL" ]]; then
+        echo "ERROR: Could not find the CodexBar Linux release assets." >&2
+        exit 1
+    fi
+
+    CODEXBAR_TMP="$(mktemp -d)"
+    curl -fL "$CODEXBAR_URL" -o "$CODEXBAR_TMP/$CODEXBAR_ASSET"
+    curl -fL "$CODEXBAR_SHA_URL" -o "$CODEXBAR_TMP/$CODEXBAR_ASSET.sha256"
+    (
+        cd "$CODEXBAR_TMP"
+        sha256sum -c "$CODEXBAR_ASSET.sha256"
+        tar -xzf "$CODEXBAR_ASSET"
+    )
+    CODEXBAR_BIN="$CODEXBAR_TMP/CodexBarCLI"
+    CODEXBAR_BUNDLE="$CODEXBAR_TMP/CodexBar_CodexBarCore.bundle"
+    if [[ ! -x "$CODEXBAR_BIN" || ! -d "$CODEXBAR_BUNDLE" ]]; then
+        echo "ERROR: CodexBar executable or resource bundle missing from archive." >&2
+        exit 1
+    fi
+
+    # The Linux release contains a CodexBarCLI executable, a lowercase symlink,
+    # and a Swift resource bundle that must remain beside the executable.
+    CODEXBAR_INSTALL_DIR="$HOME/.local/lib/codexbar/$CODEXBAR_TAG"
+    mkdir -p "$CODEXBAR_INSTALL_DIR" "$HOME/.local/bin"
+    install -m 755 "$CODEXBAR_BIN" "$CODEXBAR_INSTALL_DIR/CodexBarCLI"
+    cp -a "$CODEXBAR_BUNDLE" "$CODEXBAR_INSTALL_DIR/"
+    ln -sfn "$CODEXBAR_INSTALL_DIR/CodexBarCLI" "$HOME/.local/bin/codexbar"
+    rm -rf -- "$CODEXBAR_TMP"
+
+    "$HOME/.local/bin/codexbar" config enable --provider codex
+
+    echo "    Codex and CodexBar are installed. Run 'codex' once to sign in."
+    echo "    Install CodexBar Meter from Noctalia Settings -> Plugins, then"
+    echo "    add 'salemsayed/codexbar-meter:bar' to the desired bar section."
+else
+    echo "NOTE: Codex tooling not installed. Use --with-codex if wanted."
+fi
+
 echo "==> Setting Zsh as login shell"
 ZSH_PATH="$(command -v zsh)"
 
@@ -658,6 +744,10 @@ backup_and_link "$DOTFILES_DIR/btop"          "$HOME/.config/btop"
 backup_and_link "$DOTFILES_DIR/noctalia"      "$HOME/.config/noctalia"
 backup_and_link "$DOTFILES_DIR/satty"         "$HOME/.config/satty"
 backup_and_link "$WEB_APP_SOURCE" "$HOME/.local/bin/fedora-web-app"
+for skill_dir in "$DOTFILES_DIR"/codex/skills/*; do
+    [[ -d "$skill_dir" ]] || continue
+    backup_and_link "$skill_dir" "$HOME/.codex/skills/$(basename "$skill_dir")"
+done
 backup_and_link "$DOTFILES_DIR/chatgpt/chatgpt.desktop" "$HOME/.local/share/applications/chatgpt.desktop"
 
 echo "==> Provisioning the Outlook web app"
@@ -848,6 +938,15 @@ if [[ "$CONFIGURE_NETWORK" -eq 1 ]]; then
     fi
 fi
 
+if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 ]]; then
+    echo "==> Enabling automatic sanitized workstation diagnostics"
+    sudo dnf -y install gh
+    "$DOTFILES_DIR/diagnostics/install.sh"
+else
+    echo "NOTE: Automatic diagnostics are disabled."
+    echo "      Use --with-auto-diagnostics with --configure-github to enable them."
+fi
+
 echo "==> Installing and configuring Noctalia Greeter"
 "$DOTFILES_DIR/install-noctalia-greeter.sh"
 
@@ -877,6 +976,9 @@ echo "  Intel iwlwifi firmware (iwlwifi-mvm-firmware)"
 echo "  Intel iwlwifi driver reload when Intel wireless is detected"
 echo "  greetd + Noctalia Greeter"
 echo "  PipeWire/WirePlumber + XDG portals"
+if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 ]]; then
+    echo "  Sanitized workstation diagnostics + local Codex PR workflow"
+fi
 echo
 echo "Important:"
 if [[ "$GROUP_MEMBERSHIP_CHANGED" -eq 1 ]]; then

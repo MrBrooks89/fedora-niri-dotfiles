@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fedora Bootstrap Auditor"
+  short_description: "Audit bootstrap safety and portability"
+  default_prompt: "Use $fedora-bootstrap-auditor to audit the current bootstrap changes without running installation."
