@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
 resolve_github_repo() {
-    local repo_dir="$1"
+    # Callers declare a readonly repo_dir global, which a function-local of the
+    # same name could not shadow, so use a distinct parameter name.
+    local repo_path="$1"
     local remote
-    remote="$(git -C "$repo_dir" remote get-url origin 2>/dev/null)" || return 1
+    remote="$(git -C "$repo_path" remote get-url origin 2>/dev/null)" || return 1
 
     case "$remote" in
         https://github.com/*)

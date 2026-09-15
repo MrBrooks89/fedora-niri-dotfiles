@@ -9,6 +9,8 @@ secrets/
 niri/noctalia.kdl
 kitty/themes/noctalia.conf
 btop/themes/noctalia.theme
+nvim/lazy-lock.json
+.omo/
 
 # Session-local builder-to-publisher handoff notes (never committed)
 HANDOFF.md
