@@ -22,8 +22,6 @@ implementation.
   enable services, repositories, uploads, or privileged operations.
 - Preserve greetd and Noctalia Greeter as the sole login stack. Never recommend
   restarting or replacing the active display manager from the graphical session.
-- Verify Codex automation remains isolated, bounded, sanitized, and unable to
-  merge changes, run bootstrap, or modify the live workstation.
 
 Run `bash -n` on every changed shell script, `git diff --check`, and the
 bootstrap `--help` path. The help check must not install packages or change

@@ -60,7 +60,6 @@ WITH_NERD_FONT=0
 WITH_GAMING=0
 WITH_CODEX=0
 WITH_LOCALSEND=0
-WITH_AUTO_DIAGNOSTICS=0
 CONFIGURE_GITHUB=0
 CONFIGURE_NETWORK=0
 GROUP_MEMBERSHIP_CHANGED=0
@@ -90,8 +89,6 @@ Options:
   --with-localsend         Install LocalSend from Flathub for nearby-device sharing
                            and allow its incoming traffic through firewalld
   --with-codex             Install Codex CLI and CodexBar usage helper
-  --with-auto-diagnostics  Enable local Codex crash diagnosis and PR proposals
-                           (requires --with-codex and --configure-github)
   --configure-github       Configure Git identity and authenticate GitHub CLI
   --configure-network      Configure 192.168.4.112/24, gateway/DNS 192.168.4.1
   --all                    Enable all optional software
@@ -134,7 +131,6 @@ while [[ $# -gt 0 ]]; do
         --with-gaming)      WITH_GAMING=1 ;;
         --with-localsend)   WITH_LOCALSEND=1 ;;
         --with-codex)       WITH_CODEX=1 ;;
-        --with-auto-diagnostics) WITH_AUTO_DIAGNOSTICS=1 ;;
         --configure-github) CONFIGURE_GITHUB=1 ;;
         --configure-network) CONFIGURE_NETWORK=1 ;;
         --dry-run) DRY_RUN=1 ;;
@@ -161,15 +157,6 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
-
-if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 && "$CONFIGURE_GITHUB" -ne 1 ]]; then
-    echo "--with-auto-diagnostics requires --configure-github." >&2
-    exit 2
-fi
-if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 && "$WITH_CODEX" -ne 1 ]]; then
-    echo "--with-auto-diagnostics requires --with-codex." >&2
-    exit 2
-fi
 
 if [[ $EUID -eq 0 ]]; then
     echo "Run this script as your normal user, not root." >&2
@@ -208,7 +195,6 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     [[ "$WITH_CONTAINERLAB" -eq 1 ]] && echo "  - [--with-containerlab] containerlab + clab_admins group"
     [[ "$CONFIGURE_GITHUB" -eq 1 ]] && echo "  - [--configure-github] Git identity + gh auth (interactive)"
     [[ "$CONFIGURE_NETWORK" -eq 1 ]] && echo "  - [--configure-network] Static IP $STATIC_IP via nmcli (interactive)"
-    [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 ]] && echo "  - [--with-auto-diagnostics] diagnostics install.sh"
     echo "  - Dotfiles source: $DOTFILES_DIR"
     [[ -n "$DOTFILES_REPO" ]] && echo "    (alternate repo: $DOTFILES_REPO branch: ${DOTFILES_BRANCH:-default})"
     echo "  - Link configs (backups to $BACKUP_DIR), seed themes, provision web apps"
@@ -938,15 +924,6 @@ if [[ "$CONFIGURE_NETWORK" -eq 1 ]]; then
     fi
 fi
 
-if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 ]]; then
-    echo "==> Enabling automatic sanitized workstation diagnostics"
-    sudo dnf -y install gh
-    "$DOTFILES_DIR/diagnostics/install.sh"
-else
-    echo "NOTE: Automatic diagnostics are disabled."
-    echo "      Use --with-auto-diagnostics with --configure-github to enable them."
-fi
-
 echo "==> Installing and configuring Noctalia Greeter"
 "$DOTFILES_DIR/install-noctalia-greeter.sh"
 
@@ -976,9 +953,6 @@ echo "  Intel iwlwifi firmware (iwlwifi-mvm-firmware)"
 echo "  Intel iwlwifi driver reload when Intel wireless is detected"
 echo "  greetd + Noctalia Greeter"
 echo "  PipeWire/WirePlumber + XDG portals"
-if [[ "$WITH_AUTO_DIAGNOSTICS" -eq 1 ]]; then
-    echo "  Sanitized workstation diagnostics + local Codex PR workflow"
-fi
 echo
 echo "Important:"
 if [[ "$GROUP_MEMBERSHIP_CHANGED" -eq 1 ]]; then
