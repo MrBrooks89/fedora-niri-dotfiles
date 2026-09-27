@@ -153,18 +153,11 @@ if [[ -e "$GREETER_STATE_DIR" || -L "$GREETER_STATE_DIR" ]]; then
     }
 fi
 
-# Reconcile state left by an earlier upstream setup.  The greeter writes its
-# sync state as greetd, so merely installing the tmpfiles rule is not enough
-# for an already-existing directory or sync file.
+# Prepare the state directory before invoking upstream setup so its greeter
+# user resolution sees the intended owner. The greeter writes its sync state
+# as greetd, so merely installing the tmpfiles rule is not enough for an
+# already-existing directory or sync file.
 install -d -m 0750 -o "$GREETD_USER" -g "$GREETD_USER" "$GREETER_STATE_DIR"
-if [[ -e "$GREETER_STATE_DIR/sync.toml" || -L "$GREETER_STATE_DIR/sync.toml" ]]; then
-    [[ -f "$GREETER_STATE_DIR/sync.toml" && ! -L "$GREETER_STATE_DIR/sync.toml" ]] || {
-        echo "error: greeter sync state is not a regular file: $GREETER_STATE_DIR/sync.toml" >&2
-        exit 1
-    }
-    chown --no-dereference "$GREETD_USER:$GREETD_USER" "$GREETER_STATE_DIR/sync.toml"
-    chmod --no-dereference 0640 "$GREETER_STATE_DIR/sync.toml"
-fi
 
 # Upstream migrates state.toml and runtime greeter.toml keys, and preserves an
 # existing regular sync.toml. Identify a truly clean install before setup so its
@@ -248,6 +241,18 @@ finally:
 fi
 
 GREETER_USER="$GREETD_USER" "$OFFICIAL_SETUP"
+
+# Upstream setup may preserve or recreate mutable state with its own defaults.
+# Enforce the final ownership and mode after it returns so the greeter can
+# update sync.toml at runtime.
+if [[ -e "$GREETER_STATE_DIR/sync.toml" || -L "$GREETER_STATE_DIR/sync.toml" ]]; then
+    [[ -f "$GREETER_STATE_DIR/sync.toml" && ! -L "$GREETER_STATE_DIR/sync.toml" ]] || {
+        echo "error: greeter sync state is not a regular file: $GREETER_STATE_DIR/sync.toml" >&2
+        exit 1
+    }
+    chown --no-dereference "$GREETD_USER:$GREETD_USER" "$GREETER_STATE_DIR/sync.toml"
+    chmod --no-dereference 0640 "$GREETER_STATE_DIR/sync.toml"
+fi
 
 sed "/^\[user\]$/,/^\[/ s/^default = \"[^\"]*\"/default = \"$LOGIN_USER\"/" \
     "$SNAPSHOT_CONFIG" > "$rendered_config"
