@@ -249,6 +249,19 @@ fi
 
 GREETER_USER="$GREETD_USER" "$OFFICIAL_SETUP"
 
+# The upstream setup may recreate or retouch the state path after the initial
+# reconciliation above. Enforce the runtime writer's ownership last so the
+# greeter can persist sync.toml on the first boot and after upgrades.
+install -d -m 0750 -o "$GREETD_USER" -g "$GREETD_USER" "$GREETER_STATE_DIR"
+if [[ -e "$GREETER_STATE_DIR/sync.toml" || -L "$GREETER_STATE_DIR/sync.toml" ]]; then
+    [[ -f "$GREETER_STATE_DIR/sync.toml" && ! -L "$GREETER_STATE_DIR/sync.toml" ]] || {
+        echo "error: greeter sync state is not a regular file: $GREETER_STATE_DIR/sync.toml" >&2
+        exit 1
+    }
+    chown --no-dereference "$GREETD_USER:$GREETD_USER" "$GREETER_STATE_DIR/sync.toml"
+    chmod --no-dereference 0640 "$GREETER_STATE_DIR/sync.toml"
+fi
+
 sed "/^\[user\]$/,/^\[/ s/^default = \"[^\"]*\"/default = \"$LOGIN_USER\"/" \
     "$SNAPSHOT_CONFIG" > "$rendered_config"
 chmod 0644 "$rendered_config"
