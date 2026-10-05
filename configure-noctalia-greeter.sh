@@ -249,6 +249,25 @@ fi
 
 GREETER_USER="$GREETD_USER" "$OFFICIAL_SETUP"
 
+# The upstream setup may recreate the state directory or its mutable sync file
+# after the preflight reconciliation above. Reassert ownership after setup so
+# the greeter can persist its last-used session and display state.
+if [[ -e "$GREETER_STATE_DIR" || -L "$GREETER_STATE_DIR" ]]; then
+    [[ -d "$GREETER_STATE_DIR" && ! -L "$GREETER_STATE_DIR" ]] || {
+        echo "error: greeter state path is not a regular directory: $GREETER_STATE_DIR" >&2
+        exit 1
+    }
+fi
+install -d -m 0750 -o "$GREETD_USER" -g "$GREETD_USER" "$GREETER_STATE_DIR"
+if [[ -e "$GREETER_STATE_DIR/sync.toml" || -L "$GREETER_STATE_DIR/sync.toml" ]]; then
+    [[ -f "$GREETER_STATE_DIR/sync.toml" && ! -L "$GREETER_STATE_DIR/sync.toml" ]] || {
+        echo "error: greeter sync state is not a regular file: $GREETER_STATE_DIR/sync.toml" >&2
+        exit 1
+    }
+    chown --no-dereference "$GREETD_USER:$GREETD_USER" "$GREETER_STATE_DIR/sync.toml"
+    chmod --no-dereference 0640 "$GREETER_STATE_DIR/sync.toml"
+fi
+
 sed "/^\[user\]$/,/^\[/ s/^default = \"[^\"]*\"/default = \"$LOGIN_USER\"/" \
     "$SNAPSHOT_CONFIG" > "$rendered_config"
 chmod 0644 "$rendered_config"
